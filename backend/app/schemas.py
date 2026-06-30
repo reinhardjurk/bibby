@@ -1,0 +1,145 @@
+"""Pydantic-Schemas für Requests/Responses (API-Contract)."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import date, datetime
+
+from pydantic import BaseModel, EmailStr, Field
+
+
+# --- Anmeldung ------------------------------------------------------------
+class RegistrationCreate(BaseModel):
+    event_id: uuid.UUID
+    competition_id: uuid.UUID
+    first_name: str
+    last_name: str
+    birth_date: date
+    gender: str = Field(pattern="^[fmx]$")
+    email: EmailStr
+    language: str = "de"
+    consent_data: bool
+    consent_publish: bool = False
+
+    # Zahlung: SEPA-Lastschriftmandat oder Barzahlung bei Abholung.
+    payment_method: str = Field(pattern="^(sepa_debit|on_site)$")
+    iban: str | None = None              # nur bei sepa_debit
+    account_holder: str | None = None    # nur bei sepa_debit
+    mandate_consent: bool = False        # Einzugsermächtigung erteilt
+
+
+class RegistrationOut(BaseModel):
+    id: uuid.UUID
+    status: str
+    competition_id: uuid.UUID
+    bib_number: int | None = None
+    # Klartext-Verwaltungs-Token nur direkt nach Anmeldung zurückgegeben.
+    manage_token: str | None = None
+    # Bei SEPA-Anmeldung: die erzeugte Mandatsreferenz (für die Bestätigung).
+    mandate_reference: str | None = None
+
+
+class RegistrationUpdate(BaseModel):
+    """Selbstverwaltung: erlaubte Felder zur Korrektur."""
+
+    email: EmailStr | None = None
+    language: str | None = None
+    competition_id: uuid.UUID | None = None
+    consent_publish: bool | None = None
+
+
+class ManageView(BaseModel):
+    registration: RegistrationOut
+    first_name: str
+    last_name: str
+    email: EmailStr
+    competition_lap_count: int
+    payment_method: str | None = None
+    payment_status: str | None = None
+    payment_iban_masked: str | None = None
+    mandate_reference: str | None = None
+
+
+# --- Zeiterfassung --------------------------------------------------------
+class TimingPing(BaseModel):
+    bib_number: int
+    absolute_time: datetime  # Gerätezeit (UTC), Offset wird serverseitig angewandt
+    # Idempotenz-Schlüssel der Quelle; gleiche Pings dürfen gefahrlos
+    # wiederholt werden (Offline-Puffer der CV-App).
+    dedup_key: str
+    raw_payload: dict | None = None
+
+
+class TimingBatch(BaseModel):
+    pings: list[TimingPing]
+
+
+class TimingBatchResult(BaseModel):
+    accepted: int
+    duplicates: int  # bereits via dedup_key vorhanden
+
+
+class TimingCorrection(BaseModel):
+    status: str = Field(pattern="^(valid|ignored|manual)$")
+    bib_number: int | None = None
+    absolute_time: datetime | None = None
+
+
+# --- Ergebnisse -----------------------------------------------------------
+class LapSplit(BaseModel):
+    lap_index: int
+    elapsed_seconds: float
+
+
+class ResultRow(BaseModel):
+    rank: int | None
+    bib_number: int
+    first_name: str
+    last_name: str
+    category_code: str | None
+    finish_seconds: float | None  # None = DNF (Zielrunde nicht erreicht)
+    splits: list[LapSplit]
+    participation_count: int  # jahresübergreifend, inkl. diesem Event
+    # Veröffentlichungs-Einwilligung. In der öffentlichen Liste immer True
+    # (nicht einwilligende werden dort herausgefiltert); intern auch False.
+    published: bool = True
+
+
+class ResultList(BaseModel):
+    event_id: uuid.UUID
+    competition_id: uuid.UUID
+    lap_count: int
+    rows: list[ResultRow]
+
+
+# --- Admin / RBAC ---------------------------------------------------------
+class LoginRequest(BaseModel):
+    email: EmailStr
+
+
+class SessionToken(BaseModel):
+    token: str
+    expires_at: datetime
+    roles: list[str]
+
+
+class BibReassign(BaseModel):
+    competition_id: uuid.UUID
+
+
+class ParticipantMerge(BaseModel):
+    source_participant_id: uuid.UUID
+    target_participant_id: uuid.UUID
+
+
+class DeviceTokenCreate(BaseModel):
+    label: str
+    time_offset_seconds: int = 0
+
+
+class DeviceTokenOut(BaseModel):
+    id: uuid.UUID
+    label: str
+    token: str | None = None  # Klartext nur bei Erstellung
+    time_offset_seconds: int
+    active: bool

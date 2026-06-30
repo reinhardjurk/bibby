@@ -1,0 +1,126 @@
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --fg: #1c2430;
+  --muted: #6b7785;
+  --accent: #2f6df0;
+  --accent-fg: #ffffff;
+  --border: #dfe4ea;
+  --ok: #1d9d63;
+  --err: #d63a3a;
+  --badge: #eef3ff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app { max-width: 760px; margin: 0 auto; padding: 0 16px 48px; }
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 0;
+}
+.brand { font-weight: 700; font-size: 1.3rem; color: var(--accent); }
+header nav { display: flex; gap: 16px; flex: 1; }
+header nav a { text-decoration: none; color: var(--muted); font-weight: 500; }
+header nav a.active { color: var(--fg); }
+
+.lang-switch button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin-left: 4px;
+}
+.lang-switch button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.card h2 { margin: 0 0 4px; }
+
+label { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; color: var(--muted); }
+label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--fg); }
+.row { display: flex; gap: 14px; }
+.row > label { flex: 1; }
+
+input, select {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  color: var(--fg);
+  background: #fff;
+}
+
+button.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  padding: 11px 16px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+}
+button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+fieldset.payment {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+fieldset.payment legend { padding: 0 6px; color: var(--muted); font-size: 0.9rem; }
+
+.success { color: var(--ok); font-weight: 600; }
+.error { color: var(--err); font-weight: 600; }
+
+ul.meta { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 16px; }
+
+table.results { width: 100%; border-collapse: collapse; }
+table.results th, table.results td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+table.results th { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; }
+table.results tr.dnf { color: var(--muted); }
+
+.badge {
+  background: var(--badge);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.admin-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.bib-edit { cursor: pointer; white-space: nowrap; }
+.card h3 { margin: 18px 0 6px; }
+.card button:not(.primary) {
+  font-size: 0.85rem;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg);
+  border-radius: 6px;
+  cursor: pointer;
+}
+table.results select, table.results input { padding: 4px 6px; font-size: 0.9rem; }
+code { background: var(--badge); padding: 2px 6px; border-radius: 4px; }
