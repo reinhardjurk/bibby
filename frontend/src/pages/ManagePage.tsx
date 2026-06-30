@@ -1,14 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, type ManageView } from "../api";
+import { api, type CompetitionDto, type ManageView } from "../api";
 import { useI18n } from "../i18n";
 
 export function ManagePage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [data, setData] = useState<ManageView | null>(null);
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [email, setEmail] = useState("");
+  const [competitionId, setCompetitionId] = useState("");
+  const [team, setTeam] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -21,7 +24,12 @@ export function ManagePage() {
       .then((d) => {
         setData(d);
         setEmail(d.email);
+        setCompetitionId(d.registration.competition_id);
+        // Team vorbelegen: aktuelles Team oder Vorschlag aus früherer Anmeldung.
+        setTeam(d.team ?? d.suggested_team ?? "");
+        return api.listCompetitions(d.event_id);
       })
+      .then((c) => c && setCompetitions(c))
       .catch((e) => setError(e instanceof Error ? e.message : t("common.error")));
   }, [token]);
 
@@ -30,21 +38,25 @@ export function ManagePage() {
     setSaved(false);
     setError("");
     try {
-      await api.updateManage(token, { email });
+      await api.updateManage(token, { email, competition_id: competitionId, team });
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error"));
     }
   };
 
-  if (error) return <div className="card"><p className="error">{error}</p></div>;
+  if (error && !data) return <div className="card"><p className="error">{error}</p></div>;
   if (!data) return <div className="card">{t("common.loading")}</div>;
+
+  const compLabel = (c: CompetitionDto) =>
+    c.title_i18n?.[lang] || t("register.laps", { n: c.lap_count });
+  const showSuggestion = !data.team && !!data.suggested_team;
 
   return (
     <form className="card" onSubmit={save}>
       <h2>{t("manage.heading")}</h2>
       <p>
-        {data.first_name} {data.last_name} — {t("register.laps", { n: data.competition_lap_count })}
+        {data.first_name} {data.last_name}
       </p>
       <ul className="meta">
         <li>{t("manage.status")}: <strong>{data.registration.status}</strong></li>
@@ -65,9 +77,28 @@ export function ManagePage() {
         )}
       </ul>
 
+      {error && <p className="error">{error}</p>}
+
       <label>
         {t("register.email")}
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      </label>
+
+      <label>
+        {t("register.competition")}
+        <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
+          {competitions.map((c) => (
+            <option key={c.id} value={c.id}>{compLabel(c)}</option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        {t("register.team")}
+        <input value={team} onChange={(e) => setTeam(e.target.value)} placeholder={t("register.teamPlaceholder")} />
+        {showSuggestion && (
+          <span className="hint">{t("manage.teamSuggestion", { team: data.suggested_team || "" })}</span>
+        )}
       </label>
 
       {saved && <p className="success">{t("manage.saved")}</p>}

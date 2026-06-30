@@ -18,6 +18,7 @@ class RegistrationCreate(BaseModel):
     gender: str = Field(pattern="^[fmx]$")
     email: EmailStr
     language: str = "de"
+    team: str | None = None
     consent_data: bool
     consent_publish: bool = False
 
@@ -46,6 +47,9 @@ class RegistrationUpdate(BaseModel):
     language: str | None = None
     competition_id: uuid.UUID | None = None
     consent_publish: bool | None = None
+    # team kann gesetzt oder geleert ("") werden; daher eigenes "übergeben?"-Flag
+    # ist nicht nötig – None = unverändert, "" = leeren.
+    team: str | None = None
 
 
 class ManageView(BaseModel):
@@ -53,7 +57,11 @@ class ManageView(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
+    event_id: uuid.UUID
     competition_lap_count: int
+    team: str | None = None
+    # Vorschlag aus einer früheren Anmeldung derselben Person (falls vorhanden).
+    suggested_team: str | None = None
     payment_method: str | None = None
     payment_status: str | None = None
     payment_iban_masked: str | None = None

@@ -99,6 +99,8 @@ class Registration(Base):
     participant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("participant.id"))
     email: Mapped[str]
     language: Mapped[str] = mapped_column(String(5), default="de")
+    # Optionale Teamzugehörigkeit (kann je Jahr abweichen).
+    team: Mapped[str | None] = mapped_column(String)
     # Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status: Mapped[str] = mapped_column(String, default="confirmed")
     manage_token_hash: Mapped[str] = mapped_column(String, unique=True)

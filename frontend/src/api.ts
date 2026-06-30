@@ -44,7 +44,10 @@ export type ManageView = {
   first_name: string;
   last_name: string;
   email: string;
+  event_id: string;
   competition_lap_count: number;
+  team: string | null;
+  suggested_team: string | null;
   payment_method: string | null;
   payment_status: string | null;
   payment_iban_masked: string | null;

@@ -68,6 +68,8 @@ CREATE TABLE registration (
     participant_id      UUID NOT NULL REFERENCES participant(id),
     email               TEXT NOT NULL,      -- kann je Jahr abweichen
     language            TEXT NOT NULL DEFAULT 'de',
+    team                TEXT,               -- optionale Teamzugehörigkeit
+
     -- Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status              TEXT NOT NULL DEFAULT 'confirmed'
                           CHECK (status IN ('confirmed', 'cancelled')),

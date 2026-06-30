@@ -54,6 +54,7 @@ async def create_registration(
         participant_id=participant.id,
         email=body.email,
         language=body.language,
+        team=(body.team or "").strip() or None,
         manage_token_hash=hash_token(raw_token),
         consent_data=body.consent_data,
         consent_publish=body.consent_publish,

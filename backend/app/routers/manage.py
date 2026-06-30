@@ -47,7 +47,10 @@ async def view(token: str = Query(...), session: AsyncSession = Depends(get_sess
         first_name=participant.first_name,
         last_name=participant.last_name,
         email=reg.email,
+        event_id=reg.event_id,
         competition_lap_count=competition.lap_count,
+        team=reg.team,
+        suggested_team=await services.latest_team(session, reg.participant_id),
         payment_method=payment.method if payment else None,
         payment_status=payment.status if payment else None,
         payment_iban_masked=payment.iban_masked if payment else None,
@@ -73,6 +76,8 @@ async def update(
         reg.language = body.language
     if body.consent_publish is not None:
         reg.consent_publish = body.consent_publish
+    if body.team is not None:
+        reg.team = body.team.strip() or None  # leerer String = Team entfernen
     await session.commit()
     return RegistrationOut(
         id=reg.id,

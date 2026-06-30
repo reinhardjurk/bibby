@@ -14,6 +14,7 @@ export function RegisterPage() {
     birth_date: "",
     gender: "",
     email: "",
+    team: "",
     consent_data: false,
     consent_publish: false,
     payment_method: "on_site",
@@ -141,6 +142,15 @@ export function RegisterPage() {
       <label>
         {t("register.email")}
         <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+      </label>
+
+      <label>
+        {t("register.team")}
+        <input
+          value={form.team}
+          onChange={(e) => setForm({ ...form, team: e.target.value })}
+          placeholder={t("register.teamPlaceholder")}
+        />
       </label>
 
       {/* Zahlungsweg */}

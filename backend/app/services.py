@@ -93,6 +93,22 @@ async def assign_next_bib(
     return next_bib
 
 
+async def latest_team(session: AsyncSession, participant_id: uuid.UUID) -> str | None:
+    """Letzte (nicht-leere) Teamzugehörigkeit dieser Person über alle Anmeldungen
+    – wird auf der Verwaltungsseite als Vorschlag angeboten."""
+    return (
+        await session.execute(
+            select(Registration.team)
+            .where(
+                Registration.participant_id == participant_id,
+                Registration.team.isnot(None),
+            )
+            .order_by(Registration.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
 async def participation_count(session: AsyncSession, participant_id: uuid.UUID) -> int:
     """Anzahl Events, an denen die Person teilgenommen hat (für „X. Teilnahme")."""
     return (

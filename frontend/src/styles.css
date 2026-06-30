@@ -91,6 +91,8 @@ fieldset.payment {
 }
 fieldset.payment legend { padding: 0 6px; color: var(--muted); font-size: 0.9rem; }
 
+.hint { color: var(--muted); font-size: 0.8rem; }
+
 .success { color: var(--ok); font-weight: 600; }
 .error { color: var(--err); font-weight: 600; }
 

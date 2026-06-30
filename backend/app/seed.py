@@ -87,7 +87,7 @@ async def seed() -> None:
 
         manage_links: list[tuple[str, int, str]] = []
 
-        async def register(event, competition, person, bib, *, status="confirmed"):
+        async def register(event, competition, person, bib, *, status="confirmed", team=None):
             raw_token = generate_token()
             reg = Registration(
                 event_id=event.id,
@@ -95,6 +95,7 @@ async def seed() -> None:
                 participant_id=person.id,
                 email=f"{person.first_name.lower()}@example.com",
                 language="de",
+                team=team,
                 status=status,
                 manage_token_hash=hash_token(raw_token),
                 consent_data=True,
@@ -116,14 +117,14 @@ async def seed() -> None:
                 manage_links.append((f"{person.first_name} {person.last_name}", bib, raw_token))
             return reg
 
-        # 2026-Anmeldungen
+        # 2026-Anmeldungen (Björn mit aktuellem Team)
         await register(event2026, comp2, anna, 101)
-        await register(event2026, comp2, bjorn, 102)
+        await register(event2026, comp2, bjorn, 102, team="Laufgruppe Süd")
         await register(event2026, comp2, carla, 103)
         await register(event2026, comp3, dieter, 201)
         await register(event2026, comp1, eva, 301)
-        # Anna war schon 2025 dabei -> "2. Teilnahme"
-        await register(event2025, comp2025, anna, 55)
+        # Anna war 2025 in einem Team -> wird 2026 auf ihrer Manage-Seite vorgeschlagen
+        await register(event2025, comp2025, anna, 55, team="Laufgruppe Nord")
 
         # --- Zeiterfassung 2026: Linienüberquerungen (mm:ss nach Start) ---
         def mins(m, sec=0):
