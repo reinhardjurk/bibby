@@ -77,6 +77,7 @@ export const api = {
   listEvents: () => req<EventDto[]>("/events"),
   listCompetitions: (eventId: string) =>
     req<CompetitionDto[]>(`/events/${eventId}/competitions`),
+  listTeams: () => req<string[]>("/teams"),
 
   register: (body: unknown) =>
     req<RegistrationOut>("/registrations", { method: "POST", body: JSON.stringify(body) }),

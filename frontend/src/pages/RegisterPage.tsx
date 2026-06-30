@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type CompetitionDto, type EventDto, type RegistrationOut } from "../api";
+import { TeamInput } from "../components/TeamInput";
 import { useI18n } from "../i18n";
 
 export function RegisterPage() {
@@ -146,9 +147,9 @@ export function RegisterPage() {
 
       <label>
         {t("register.team")}
-        <input
+        <TeamInput
           value={form.team}
-          onChange={(e) => setForm({ ...form, team: e.target.value })}
+          onChange={(v) => setForm({ ...form, team: v })}
           placeholder={t("register.teamPlaceholder")}
         />
       </label>

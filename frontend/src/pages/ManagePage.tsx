@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, type CompetitionDto, type ManageView } from "../api";
+import { TeamInput } from "../components/TeamInput";
 import { useI18n } from "../i18n";
 
 export function ManagePage() {
@@ -95,7 +96,7 @@ export function ManagePage() {
 
       <label>
         {t("register.team")}
-        <input value={team} onChange={(e) => setTeam(e.target.value)} placeholder={t("register.teamPlaceholder")} />
+        <TeamInput value={team} onChange={setTeam} placeholder={t("register.teamPlaceholder")} />
         {showSuggestion && (
           <span className="hint">{t("manage.teamSuggestion", { team: data.suggested_team || "" })}</span>
         )}

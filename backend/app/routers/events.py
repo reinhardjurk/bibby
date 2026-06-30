@@ -9,9 +9,24 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Competition, Event
+from ..models import Competition, Event, Registration
 
 router = APIRouter(tags=["events"])
+
+
+@router.get("/teams")
+async def list_teams(session: AsyncSession = Depends(get_session)) -> list[str]:
+    """Bereits vergebene Teamnamen – für die Autovervollständigung im Team-Feld."""
+    return list(
+        (
+            await session.execute(
+                select(Registration.team)
+                .where(Registration.team.isnot(None))
+                .distinct()
+                .order_by(Registration.team)
+            )
+        ).scalars().all()
+    )
 
 
 @router.get("/events")
