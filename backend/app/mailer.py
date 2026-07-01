@@ -20,8 +20,8 @@ async def send_email(*, to: str, subject: str, text: str, html: str | None = Non
         recipient = settings.mail_test_recipient or settings.tem_from_email
         subject = f"[TEST → {to}] {subject}"
 
-    # Ohne API-Key nur loggen (lokale Entwicklung).
-    if not settings.tem_api_key:
+    # Ohne Secret Key nur loggen (lokale Entwicklung).
+    if not settings.tem_secret_key:
         print(f"[email dev] to={recipient} subject={subject!r}\n{text}\n")
         return
 
@@ -41,6 +41,9 @@ async def send_email(*, to: str, subject: str, text: str, html: str | None = Non
     )
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
-            url, json=payload, headers={"X-Auth-Token": settings.tem_api_key}
+            url, json=payload, headers={"X-Auth-Token": settings.tem_secret_key}
         )
-        resp.raise_for_status()
+    if resp.status_code >= 400:
+        # Der Antwort-Body nennt die genaue Ursache (z. B. unverifizierte
+        # Absender-Domäne, fehlende IAM-Berechtigung, falsche project_id).
+        raise RuntimeError(f"TEM {resp.status_code}: {resp.text}")

@@ -26,7 +26,7 @@ services:
       # Test-Modus AN lassen, solange nicht bewusst echt versendet werden soll.
       BIBBY_MAIL_TEST_MODE: "${BIBBY_MAIL_TEST_MODE:-true}"
       BIBBY_MAIL_TEST_RECIPIENT: "${BIBBY_MAIL_TEST_RECIPIENT:-}"
-      BIBBY_TEM_API_KEY: "${BIBBY_TEM_API_KEY:-}"
+      BIBBY_TEM_SECRET_KEY: "${BIBBY_TEM_SECRET_KEY:-}"
       BIBBY_TEM_PROJECT_ID: "${BIBBY_TEM_PROJECT_ID:-}"
       BIBBY_SCW_REGION: "${BIBBY_SCW_REGION:-fr-par}"
       BIBBY_TEM_FROM_EMAIL: "${BIBBY_TEM_FROM_EMAIL:-no-reply@bibby.example}"

@@ -57,6 +57,6 @@ resource "scaleway_container" "api" {
     BIBBY_DATABASE_URL         = local.database_url
     BIBBY_SECRET_KEY           = var.app_secret_key
     BIBBY_FIELD_ENCRYPTION_KEY = var.field_encryption_key
-    BIBBY_TEM_API_KEY          = var.tem_api_key
+    BIBBY_TEM_SECRET_KEY       = var.tem_secret_key
   }
 }

@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     sepa_creditor_id: str = "DE00ZZZ00000000000"
 
     # Scaleway Transactional Email (TEM)
-    tem_api_key: str = ""                       # Scaleway API-Secret-Key mit TEM-Rechten
+    # Nur der Secret Key des API-Keys (X-Auth-Token); der Access Key ID wird
+    # für die HTTP-API NICHT benötigt.
+    tem_secret_key: str = ""
     tem_project_id: str = ""                    # Scaleway Project ID (für den API-Call)
     scw_region: str = "fr-par"
     tem_from_email: str = "no-reply@bibby.example"  # Absender – Domäne muss in TEM verifiziert sein

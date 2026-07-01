@@ -52,8 +52,8 @@ variable "sepa_creditor_id" {
   default     = ""
 }
 
-variable "tem_api_key" {
-  description = "Scaleway TEM API Key"
+variable "tem_secret_key" {
+  description = "Secret Key des Scaleway-API-Keys mit TEM-Rechten (X-Auth-Token)"
   type        = string
   sensitive   = true
   default     = ""

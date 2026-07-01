@@ -20,7 +20,7 @@ sepa_creditor_id   = "DE00ZZZ00000000000"
 # Secrets besser via TF_VAR_* aus der Umgebung setzen statt hier eintragen:
 #   export TF_VAR_app_secret_key=...
 #   export TF_VAR_field_encryption_key=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-#   export TF_VAR_tem_api_key=...
+#   export TF_VAR_tem_secret_key=...   # nur der Secret Key des Scaleway-API-Keys
 app_secret_key       = "change-me"
 field_encryption_key = "change-me-fernet-key"
-tem_api_key          = ""
+tem_secret_key       = ""

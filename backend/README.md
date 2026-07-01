@@ -49,7 +49,7 @@ Versand über `app/mailer.py` (`send_email`). Konfiguration per Env:
 
 | Variable | Zweck |
 |---|---|
-| `BIBBY_TEM_API_KEY` | Scaleway API-Secret-Key mit TEM-Rechten (leer = nur loggen) |
+| `BIBBY_TEM_SECRET_KEY` | Secret Key des Scaleway-API-Keys mit TEM-Rechten (X-Auth-Token; leer = nur loggen). Access Key ID wird nicht benötigt. |
 | `BIBBY_TEM_PROJECT_ID` | Scaleway Project ID |
 | `BIBBY_SCW_REGION` | Region (z. B. `fr-par`) |
 | `BIBBY_TEM_FROM_EMAIL` | Absender – Domäne muss in TEM verifiziert sein |
@@ -60,7 +60,7 @@ Versand über `app/mailer.py` (`send_email`). Konfiguration per Env:
 - **Test-Modus** (Standard `true`): jede Mail geht an die feste Test-Adresse;
   der eigentliche Empfänger steht im Betreff (`[TEST → …]`). Vor dem Echtbetrieb
   auf `false` setzen.
-- Ohne `TEM_API_KEY` wird die Mail nur geloggt (lokale Entwicklung).
+- Ohne `TEM_SECRET_KEY` wird die Mail nur geloggt (lokale Entwicklung).
 - Mailfehler lassen die Anmeldung nicht scheitern (werden nur geloggt).
 
 ## Noch offen (Stubs / nächste Schritte)
