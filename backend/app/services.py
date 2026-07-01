@@ -245,6 +245,7 @@ async def build_results(
                 bib_number=bib.bib_number,
                 first_name=participant.first_name,
                 last_name=participant.last_name,
+                gender=participant.gender,
                 category_code=await resolve_category(session, event, participant),
                 finish_seconds=finish_seconds,
                 splits=splits,

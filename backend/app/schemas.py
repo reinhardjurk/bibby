@@ -104,6 +104,7 @@ class ResultRow(BaseModel):
     bib_number: int
     first_name: str
     last_name: str
+    gender: str
     category_code: str | None
     finish_seconds: float | None  # None = DNF (Zielrunde nicht erreicht)
     splits: list[LapSplit]

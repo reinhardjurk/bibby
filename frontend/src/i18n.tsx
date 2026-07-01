@@ -97,6 +97,11 @@ const translations: Record<Lang, Dict> = {
     "results.dnf": "DNF",
     "results.nth": "{n}. Teilnahme",
     "results.empty": "Noch keine Ergebnisse.",
+    "results.view": "Ansicht",
+    "results.viewOverall": "Gesamt",
+    "results.viewAgeClass": "nach Altersklasse",
+    "results.viewAgeClassGender": "nach Altersklasse & Geschlecht",
+    "results.noCategory": "ohne Klasse",
 
     "common.loading": "Lädt …",
     "common.choose": "Bitte wählen",
@@ -193,6 +198,11 @@ const translations: Record<Lang, Dict> = {
     "results.dnf": "DNF",
     "results.nth": "participation #{n}",
     "results.empty": "No results yet.",
+    "results.view": "View",
+    "results.viewOverall": "Overall",
+    "results.viewAgeClass": "by age class",
+    "results.viewAgeClassGender": "by age class & gender",
+    "results.noCategory": "no class",
 
     "common.loading": "Loading …",
     "common.choose": "Please choose",

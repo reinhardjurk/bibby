@@ -60,6 +60,7 @@ export type ResultRow = {
   bib_number: number;
   first_name: string;
   last_name: string;
+  gender: string;
   category_code: string | null;
   finish_seconds: number | null;
   splits: LapSplit[];
