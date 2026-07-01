@@ -18,11 +18,29 @@ npm run build               # erzeugt dist/ für Object-Storage-Upload
 
 ## Routen
 
-| Route | Inhalt | Backend |
-|---|---|---|
-| `/` | Anmeldeformular (Feature 1) + Zahlungsstart | `GET /events`, `GET /events/{id}/competitions`, `POST /registrations`, `POST /registrations/{id}/payment` |
-| `/manage?token=…` | Selbstverwaltung (Feature 2) + Startnummer-PDF | `GET/PATCH /manage`, `GET /manage/bib.pdf` |
-| `/results` | Ergebnislisten (Feature 4) mit Splits & Teilnahmezähler | `GET /events/{id}/results` |
+Zwei getrennte Bereiche mit je eigener Navigation (`src/components/Layouts.tsx`).
+
+**Läufer-Bereich** (`RunnerLayout`):
+
+| Route | Inhalt |
+|---|---|
+| `/teilnahme` | Anmeldeformular (inkl. Team, T-Shirt) |
+| `/teilnahme/ergebnisse` | Ergebnislisten (Gesamt / Altersklasse / Geschlecht) |
+| `/manage?token=…` | Selbstverwaltung + Startnummer-PDF |
+
+**Staff-Bereich** (`AdminLayout`, Login/Rollen bzw. Geräte-Token):
+
+| Route | Inhalt |
+|---|---|
+| `/team` | Admin: Suche (Name/Startnummer) + Voll-Bearbeitung |
+| `/team/special` | Special-Admin: Liste, Erfassungen je Startnummer, Strecken/Startzeiten, interne Ergebnisse, Geräte-Tokens |
+| `/team/zeiterfassung` | Zeiterfassung (Ziffernfeld, Geräte-Token) – Ziel des QR-Codes |
+
+**Weiterleitungen (alt → neu):** `/` → `/teilnahme`, `/results` → `/teilnahme/ergebnisse`,
+`/admin` → `/team`, `/special-admin` → `/team/special`, `/timing?…` → `/team/zeiterfassung?…`.
+
+Die Backend-API-Endpunkte sind in [../backend/README.md](../backend/README.md#api-übersicht)
+dokumentiert.
 
 ## i18n
 
@@ -38,13 +56,14 @@ src/
   App.tsx           Layout, Navigation, Routen
   api.ts            typisierter API-Client + formatTime()
   i18n.tsx          Übersetzungen + Hook
-  components/       LanguageSwitcher
+  components/       LanguageSwitcher · TeamInput · Layouts (Runner/Admin)
   pages/            RegisterPage · ManagePage · ResultsPage
+                    AdminPage · SpecialAdminPage · TimingPage · adminShared
   styles.css        Basis-Styling (CSS-Variablen, hell)
 ```
 
 ## Hinweis zum SPA-Routing auf Object Storage
 
-`/manage` und `/results` sind Client-Routen. Beim statischen Hosting muss
-404 → `index.html` umgeleitet werden (CDN-/Bucket-Konfiguration), damit
-Deep-Links funktionieren.
+Alle Routen sind Client-Routen. Beim statischen Hosting muss 404 → `index.html`
+umgeleitet werden (CDN-/Bucket-Konfiguration), damit Deep-Links wie
+`/teilnahme/ergebnisse` oder `/team/special` funktionieren.

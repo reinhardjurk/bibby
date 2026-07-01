@@ -143,6 +143,15 @@ async def resolve_category(
     return None
 
 
+def compute_price_cents(event: Event, competition: Competition, birth_date: date) -> int:
+    """Startgeld für Strecke + Altersgruppe. Wer am/nach event.junior_cutoff_date
+    geboren ist, zahlt price_junior_cents (falls gesetzt), sonst den Standardpreis."""
+    is_junior = event.junior_cutoff_date is not None and birth_date >= event.junior_cutoff_date
+    if is_junior and competition.price_junior_cents is not None:
+        return competition.price_junior_cents
+    return competition.price_cents
+
+
 # =========================================================================
 # Rundenableitung
 # =========================================================================

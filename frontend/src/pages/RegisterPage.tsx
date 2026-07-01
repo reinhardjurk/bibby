@@ -16,6 +16,7 @@ export function RegisterPage() {
     gender: "",
     email: "",
     team: "",
+    tshirt: "",
     consent_data: false,
     consent_publish: false,
     payment_method: "on_site",
@@ -40,6 +41,20 @@ export function RegisterPage() {
   }, [eventId]);
 
   const sepa = form.payment_method === "sepa_debit";
+  const selectedEvent = events.find((e) => e.id === eventId);
+  const selectedComp = competitions.find((c) => c.id === competitionId);
+  const tshirtOptions = selectedEvent?.tshirt_options ?? [];
+  const isJunior = !!(
+    selectedEvent?.junior_cutoff_date &&
+    form.birth_date &&
+    form.birth_date >= selectedEvent.junior_cutoff_date &&
+    selectedComp?.price_junior_cents != null
+  );
+  const priceCents = selectedComp
+    ? isJunior
+      ? selectedComp.price_junior_cents!
+      : selectedComp.price_cents
+    : null;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -107,11 +122,18 @@ export function RegisterPage() {
           {competitions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.title_i18n?.[lang] || t("register.laps", { n: c.lap_count })}
-              {c.price_cents > 0 ? ` — ${(c.price_cents / 100).toFixed(2)} ${c.currency}` : ""}
             </option>
           ))}
         </select>
       </label>
+
+      {selectedComp && priceCents != null && (
+        <p className="hint">
+          {t("register.price")}:{" "}
+          <strong>{(priceCents / 100).toFixed(2)} {selectedComp.currency}</strong>
+          {isJunior && ` (${t("register.junior")})`}
+        </p>
+      )}
 
       <div className="row">
         <label>
@@ -152,6 +174,19 @@ export function RegisterPage() {
           onChange={(v) => setForm({ ...form, team: v })}
           placeholder={t("register.teamPlaceholder")}
         />
+      </label>
+
+      <label>
+        {t("register.tshirt")}
+        <select value={form.tshirt} onChange={(e) => setForm({ ...form, tshirt: e.target.value })} required>
+          <option value="">{t("common.choose")}</option>
+          {tshirtOptions.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+        {selectedEvent?.tshirt_included && (
+          <span className="hint">{t("register.tshirtIncluded")}</span>
+        )}
       </label>
 
       {/* Zahlungsweg */}

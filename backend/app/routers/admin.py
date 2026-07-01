@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import services
+from .. import crypto, services
 from ..db import get_session
 from ..models import (
     AppUser,
@@ -18,17 +20,20 @@ from ..models import (
     BibAssignment,
     Competition,
     DeviceToken,
+    Event,
     Participant,
     Payment,
     Registration,
     UserRole,
 )
+from ..routers.events import event_tshirt_options
 from ..schemas import (
     AdminRegistrationDetail,
     AdminRegistrationUpdate,
     BibReassign,
     CompetitionUpdate,
     DeviceTokenCreate,
+    EventUpdate,
     DeviceTokenOut,
     LoginRequest,
     ParticipantMerge,
@@ -177,6 +182,7 @@ async def _registration_detail(
         return None
     participant = await session.get(Participant, reg.participant_id)
     competition = await session.get(Competition, reg.competition_id)
+    event = await session.get(Event, reg.event_id)
     bib = (
         await session.execute(
             select(BibAssignment).where(BibAssignment.registration_id == reg.id)
@@ -198,6 +204,8 @@ async def _registration_detail(
         email=reg.email,
         language=reg.language,
         team=reg.team,
+        tshirt=reg.tshirt,
+        tshirt_options=event_tshirt_options(event),
         consent_data=reg.consent_data,
         consent_publish=reg.consent_publish,
         status=reg.status,
@@ -263,6 +271,8 @@ async def update_registration(
         reg.language = body.language
     if body.team is not None:
         reg.team = body.team.strip() or None
+    if body.tshirt is not None:
+        reg.tshirt = body.tshirt or None
     if body.consent_data is not None:
         reg.consent_data = body.consent_data
     if body.consent_publish is not None:
@@ -421,6 +431,79 @@ async def mark_paid(
     return {"ok": True}
 
 
+@router.post("/events/{event_id}/sepa-export")
+async def sepa_export(
+    event_id: uuid.UUID,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """CSV der noch nicht exportierten, offenen SEPA-Lastschriften (Name, IBAN,
+    Betrag). Markiert die enthaltenen Zahlungen mit dem Export-Zeitpunkt, damit
+    erkennbar ist, was bereits abgerechnet wurde."""
+    event = await session.get(Event, event_id)
+    if event is None:
+        raise HTTPException(404, "Event nicht gefunden")
+
+    rows = (
+        await session.execute(
+            select(Payment, Participant, BibAssignment)
+            .join(Registration, Registration.id == Payment.registration_id)
+            .join(Participant, Participant.id == Registration.participant_id)
+            .outerjoin(BibAssignment, BibAssignment.registration_id == Registration.id)
+            .where(
+                Registration.event_id == event_id,
+                Payment.method == "sepa_debit",
+                Payment.status == "pending",
+                Payment.sepa_exported_at.is_(None),
+            )
+            .order_by(BibAssignment.bib_number)
+        )
+    ).all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";")
+    writer.writerow(
+        [
+            "Startnummer",
+            "Teilnehmer",
+            "Kontoinhaber",
+            "IBAN",
+            "Betrag",
+            "Waehrung",
+            "Mandatsreferenz",
+            "Mandatsdatum",
+            "Verwendungszweck",
+        ]
+    )
+    now = datetime.now(timezone.utc)
+    for pay, part, bib in rows:
+        name = f"{part.first_name} {part.last_name}"
+        iban = crypto.decrypt(pay.iban_encrypted) if pay.iban_encrypted else ""
+        writer.writerow(
+            [
+                bib.bib_number if bib else "",
+                name,
+                pay.account_holder or name,
+                iban,
+                f"{pay.amount_cents / 100:.2f}",
+                pay.currency,
+                pay.mandate_reference or "",
+                pay.mandate_granted_at.date().isoformat() if pay.mandate_granted_at else "",
+                f"Startgeld {event.name} {event.year} - {name}",
+            ]
+        )
+        pay.sepa_exported_at = now
+
+    await session.commit()
+    filename = f"sepa-export-{event.year}-{now.strftime('%Y%m%d-%H%M%S')}.csv"
+    # BOM voranstellen, damit Excel UTF-8 (Umlaute) korrekt erkennt.
+    return Response(
+        content="﻿" + buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # --- Strecken / Startzeiten -----------------------------------------------
 @router.patch("/competitions/{competition_id}")
 async def update_competition(
@@ -433,16 +516,49 @@ async def update_competition(
     comp = await session.get(Competition, competition_id)
     if comp is None:
         raise HTTPException(404, "Strecke nicht gefunden")
-    comp.start_time = body.start_time
+    if "start_time" in body.model_fields_set:
+        comp.start_time = body.start_time
     if body.price_cents is not None:
         comp.price_cents = body.price_cents
+    if "price_junior_cents" in body.model_fields_set:
+        comp.price_junior_cents = body.price_junior_cents
     await session.commit()
     return {
         "id": str(comp.id),
         "lap_count": comp.lap_count,
         "start_time": comp.start_time.isoformat() if comp.start_time else None,
         "price_cents": comp.price_cents,
+        "price_junior_cents": comp.price_junior_cents,
         "currency": comp.currency,
+    }
+
+
+# --- Event-Einstellungen (T-Shirt-Optionen) -------------------------------
+@router.patch("/events/{event_id}")
+async def update_event(
+    event_id: uuid.UUID,
+    body: EventUpdate,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    event = await session.get(Event, event_id)
+    if event is None:
+        raise HTTPException(404, "Event nicht gefunden")
+    if "tshirt_options" in body.model_fields_set:
+        # leere Liste = wieder auf Default zurückfallen
+        event.tshirt_options = body.tshirt_options or None
+    if "junior_cutoff_date" in body.model_fields_set:
+        event.junior_cutoff_date = body.junior_cutoff_date
+    if body.tshirt_included is not None:
+        event.tshirt_included = body.tshirt_included
+    await session.commit()
+    return {
+        "id": str(event.id),
+        "tshirt_options": event_tshirt_options(event),
+        "junior_cutoff_date": event.junior_cutoff_date.isoformat()
+        if event.junior_cutoff_date
+        else None,
+        "tshirt_included": event.tshirt_included,
     }
 
 

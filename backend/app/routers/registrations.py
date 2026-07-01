@@ -55,6 +55,7 @@ async def create_registration(
         email=body.email,
         language=body.language,
         team=(body.team or "").strip() or None,
+        tshirt=body.tshirt or None,
         manage_token_hash=hash_token(raw_token),
         consent_data=body.consent_data,
         consent_publish=body.consent_publish,
@@ -69,13 +70,14 @@ async def create_registration(
     # Startnummer fortlaufend vergeben
     bib_number = await services.assign_next_bib(session, registration.event_id, registration.id)
 
-    # Zahlung anlegen
+    # Zahlung anlegen (Preis nach Strecke + Altersgruppe)
     event = await session.get(Event, body.event_id)
+    amount_cents = services.compute_price_cents(event, competition, body.birth_date)
     mandate_reference: str | None = None
     payment = Payment(
         registration_id=registration.id,
         method=body.payment_method,
-        amount_cents=competition.price_cents,
+        amount_cents=amount_cents,
         currency=competition.currency,
         status="pending",
     )

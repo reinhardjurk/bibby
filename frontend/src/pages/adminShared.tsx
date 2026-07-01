@@ -130,6 +130,7 @@ type EditForm = {
   email: string;
   language: string;
   team: string;
+  tshirt: string;
   consent_data: boolean;
   consent_publish: boolean;
   status: string;
@@ -169,6 +170,7 @@ export function EditRegistration({
           email: d.email,
           language: d.language,
           team: d.team ?? "",
+          tshirt: d.tshirt ?? "",
           consent_data: d.consent_data,
           consent_publish: d.consent_publish,
           status: d.status,
@@ -200,6 +202,7 @@ export function EditRegistration({
       email: form.email,
       language: form.language,
       team: form.team,
+      tshirt: form.tshirt,
       consent_data: form.consent_data,
       consent_publish: form.consent_publish,
       status: form.status,
@@ -268,6 +271,15 @@ export function EditRegistration({
         <label>
           {t("register.team")}
           <TeamInput value={form.team} onChange={(v) => set({ team: v })} />
+        </label>
+        <label>
+          {t("register.tshirt")}
+          <select value={form.tshirt} onChange={(e) => set({ tshirt: e.target.value })}>
+            <option value="">–</option>
+            {detail.tshirt_options.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
         </label>
       </div>
 
@@ -354,6 +366,8 @@ export function CompetitionSettings({ eventId, lang }: { eventId: string; lang: 
           <tr>
             <th>{t("admin.competition")}</th>
             <th>{t("admin.startTime")}</th>
+            <th>{t("admin.priceAdult")}</th>
+            <th>{t("admin.priceJunior")}</th>
             <th></th>
           </tr>
         </thead>
@@ -378,12 +392,19 @@ function CompetitionRow({
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState(toLocalInput(comp.start_time));
+  const [priceAdult, setPriceAdult] = useState((comp.price_cents / 100).toFixed(2));
+  const [priceJunior, setPriceJunior] = useState(
+    comp.price_junior_cents != null ? (comp.price_junior_cents / 100).toFixed(2) : ""
+  );
   const [saved, setSaved] = useState(false);
   const label = comp.title_i18n?.[lang] || t("register.laps", { n: comp.lap_count });
+  const touch = () => setSaved(false);
 
   const save = async () => {
     await adminApi.updateCompetition(comp.id, {
       start_time: value ? new Date(value).toISOString() : null,
+      price_cents: Math.round(Number(priceAdult) * 100),
+      price_junior_cents: priceJunior === "" ? null : Math.round(Number(priceJunior) * 100),
     });
     setSaved(true);
     onSaved();
@@ -398,7 +419,32 @@ function CompetitionRow({
           value={value}
           onChange={(e) => {
             setValue(e.target.value);
-            setSaved(false);
+            touch();
+          }}
+        />
+      </td>
+      <td>
+        <input
+          type="number"
+          step="0.01"
+          style={{ width: 80 }}
+          value={priceAdult}
+          onChange={(e) => {
+            setPriceAdult(e.target.value);
+            touch();
+          }}
+        />
+      </td>
+      <td>
+        <input
+          type="number"
+          step="0.01"
+          style={{ width: 80 }}
+          placeholder="–"
+          value={priceJunior}
+          onChange={(e) => {
+            setPriceJunior(e.target.value);
+            touch();
           }}
         />
       </td>
@@ -498,7 +544,7 @@ export function DeviceTokens({ eventId }: { eventId: string }) {
         <div className="token-created">
           <p className="success">{t("admin.tokenCreated")}</p>
           <QRCodeSVG
-            value={`${window.location.origin}/timing?token=${encodeURIComponent(created)}&event=${eventId}`}
+            value={`${window.location.origin}/team/zeiterfassung?token=${encodeURIComponent(created)}&event=${eventId}`}
             size={200}
           />
           <p className="hint">{t("admin.tokenScan")}</p>

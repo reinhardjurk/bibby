@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import services
 from ..db import get_session
 from ..models import Competition, Event, Participant, Payment, Registration
+from ..routers.events import event_tshirt_options
 from ..schemas import ManageView, RegistrationOut, RegistrationUpdate
 from ..security import hash_token
 
@@ -31,6 +32,7 @@ async def view(token: str = Query(...), session: AsyncSession = Depends(get_sess
     reg = await _resolve(token, session)
     participant = await session.get(Participant, reg.participant_id)
     competition = await session.get(Competition, reg.competition_id)
+    event = await session.get(Event, reg.event_id)
     payment = (
         await session.execute(
             select(Payment).where(Payment.registration_id == reg.id).order_by(Payment.created_at.desc())
@@ -51,6 +53,8 @@ async def view(token: str = Query(...), session: AsyncSession = Depends(get_sess
         competition_lap_count=competition.lap_count,
         team=reg.team,
         suggested_team=await services.latest_team(session, reg.participant_id),
+        tshirt=reg.tshirt,
+        tshirt_options=event_tshirt_options(event),
         payment_method=payment.method if payment else None,
         payment_status=payment.status if payment else None,
         payment_iban_masked=payment.iban_masked if payment else None,
@@ -78,6 +82,8 @@ async def update(
         reg.consent_publish = body.consent_publish
     if body.team is not None:
         reg.team = body.team.strip() or None  # leerer String = Team entfernen
+    if body.tshirt is not None:
+        reg.tshirt = body.tshirt or None
     await session.commit()
     return RegistrationOut(
         id=reg.id,

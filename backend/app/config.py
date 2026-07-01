@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     default_currency: str = "EUR"
     # Startnummer wird bei der Anmeldung fortlaufend vergeben; erste Nummer:
     bib_start_number: int = 1
+    # Fallback-T-Shirt-Optionen, falls das Event keine eigenen konfiguriert hat.
+    default_tshirt_options: list[str] = ["Kein T-Shirt (Spende)", "XS", "S", "M", "L", "XL"]
     # Mindestabstand zweier Linienüberquerungen derselben Startnummer (Sek.).
     # Schützt vor Doppelerfassung; kürzere Abstände werden als duplicate markiert.
     min_lap_seconds: int = 60

@@ -30,6 +30,9 @@ CREATE TABLE event (
     location            TEXT,
     default_start_time  TIMESTAMPTZ,        -- Massenstart, falls Gruppen nicht eigene Zeit haben
     registration_deadline TIMESTAMPTZ,
+    tshirt_options      JSONB,              -- konfigurierbare T-Shirt-Optionen (NULL = Default)
+    junior_cutoff_date  DATE,               -- Geburtsdatum ab hier = ermäßigt (NULL = keine Ermäßigung)
+    tshirt_included     BOOLEAN NOT NULL DEFAULT false,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (year)
 );
@@ -41,7 +44,8 @@ CREATE TABLE competition (
     lap_count       INT  NOT NULL CHECK (lap_count >= 1),
     title_i18n      JSONB,                  -- optionaler Anzeigename, sonst aus lap_count abgeleitet
     start_time      TIMESTAMPTZ,            -- überschreibt event.default_start_time (gestaffelter Start)
-    price_cents     INT  NOT NULL DEFAULT 0,
+    price_cents     INT  NOT NULL DEFAULT 0,   -- Erwachsenen-/Standardpreis
+    price_junior_cents INT,                     -- Jugendpreis (NULL = wie Erwachsene)
     currency        TEXT NOT NULL DEFAULT 'EUR',
     UNIQUE (event_id, lap_count)
 );
@@ -69,6 +73,7 @@ CREATE TABLE registration (
     email               TEXT NOT NULL,      -- kann je Jahr abweichen
     language            TEXT NOT NULL DEFAULT 'de',
     team                TEXT,               -- optionale Teamzugehörigkeit
+    tshirt              TEXT,               -- gewählte T-Shirt-Option
 
     -- Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status              TEXT NOT NULL DEFAULT 'confirmed'
@@ -114,6 +119,7 @@ CREATE TABLE payment (
     account_holder      TEXT,
     mandate_reference   TEXT UNIQUE,
     mandate_granted_at  TIMESTAMPTZ,
+    sepa_exported_at    TIMESTAMPTZ,         -- Zeitpunkt des letzten SEPA-CSV-Exports
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );

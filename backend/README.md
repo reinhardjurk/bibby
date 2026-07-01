@@ -28,8 +28,62 @@ OpenAPI-Doku: http://localhost:8000/docs
 | `app/models.py` | SQLAlchemy-2.0-Modelle (Spiegel von `db/schema.sql`) |
 | `app/schemas.py` | Pydantic-Request/Response (API-Contract) |
 | `app/security.py` | Token-Hashing, Geräte-Token-Auth, RBAC (`require_roles`) |
-| `app/services.py` | Matching, **Rundenableitung**, Ergebnisberechnung; Mollie/TEM-Stubs |
-| `app/routers/` | `registrations`, `manage`, `timing`, `results`, `admin`, `webhooks` |
+| `app/services.py` | Matching, **Rundenableitung**, Ergebnisberechnung |
+| `app/mailer.py` | E-Mail-Versand (Scaleway TEM) mit Test-Modus |
+| `app/routers/` | `events`, `registrations`, `manage`, `timing`, `results`, `admin` |
+
+## API-Übersicht
+
+Lebende Referenz: **`/docs`** (Swagger) bzw. `/openapi.json`. Kurzüberblick:
+
+**Öffentlich** (keine Auth)
+
+| Methode & Pfad | Zweck |
+|---|---|
+| `GET /health` | Health-Check |
+| `GET /events` | Events (inkl. T-Shirt-Optionen) |
+| `GET /events/{id}/competitions` | Strecken (inkl. Startzeit) |
+| `GET /teams` | vergebene Teamnamen (Autocomplete) |
+| `POST /registrations` | Anmeldung anlegen (vergibt Startnummer) |
+| `GET /events/{id}/results?competition_id=` | öffentliche Ergebnisliste |
+
+**Selbstverwaltung** (Magic-Link-Token in der Query)
+
+| Methode & Pfad | Zweck |
+|---|---|
+| `GET /manage?token=` | Anmeldung ansehen |
+| `PATCH /manage?token=` | Anmeldung ändern (E-Mail, Strecke, Team, T-Shirt) |
+| `GET /manage/bib.pdf?token=` | Startnummer als PDF |
+
+**Zeiterfassung**
+
+| Methode & Pfad | Auth | Zweck |
+|---|---|---|
+| `POST /events/{id}/timings` | Geräte-Token (Bearer) | Erfassungen (Batch, idempotent) – CV-App + Web |
+| `GET /events/{id}/timings/{bib}` | Session (timing/race_office/viewer) | Erfassungen einer Startnummer |
+| `PATCH /timings/{id}` | Session (timing) | Korrektur (Zeit/Status/Nummer) |
+| `DELETE /timings/{id}` | Session (timing) | Erfassung löschen |
+
+**Admin** (`/admin`, Bearer Session-Token, RBAC – `admin` impliziert alles)
+
+| Methode & Pfad | Rolle | Zweck |
+|---|---|---|
+| `POST /admin/auth/login` | – | Passwort-Login → Session-Token |
+| `GET /admin/me` | eingeloggt | eigene Rollen |
+| `GET /admin/registrations?event_id=&q=&limit=&offset=` | eingeloggt | paginierte Liste / Suche |
+| `GET /admin/registrations/{id}` | eingeloggt | Detail |
+| `PATCH /admin/registrations/{id}` | race_office | Voll-Bearbeitung (alle Felder) |
+| `POST /admin/registrations/{id}/bib` | race_office | Startnummer setzen |
+| `POST /admin/registrations/{id}/reassign` | race_office | Strecke umhängen |
+| `POST /admin/registrations/{id}/payment/mark-paid` | race_office | als bezahlt markieren |
+| `POST /admin/events/{id}/sepa-export` | race_office | CSV der offenen SEPA-Lastschriften (Name, IBAN, Betrag); markiert als exportiert |
+| `POST /admin/participants/merge` | race_office | Teilnehmer zusammenführen |
+| `PATCH /admin/competitions/{id}` | race_office | Startzeit / Preise (Erw./Jugend) |
+| `PATCH /admin/events/{id}` | race_office | Event-Einstellungen (T-Shirt, Jugend-Stichtag) |
+| `POST /admin/events/{id}/recompute-times` | race_office | alle Laufzeiten berechnen |
+| `GET /admin/events/{id}/results?competition_id=` | eingeloggt | interne Vollwertung (inkl. nicht-öffentliche) |
+| `GET/POST /admin/events/{id}/device-tokens` | timing | Geräte-Tokens auflisten / anlegen |
+| `DELETE /admin/device-tokens/{id}` | timing | Geräte-Token sperren |
 
 ## Zahlung
 

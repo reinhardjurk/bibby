@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   adminApi,
   api,
+  downloadSepaExport,
   formatTime,
   type AdminRegistration,
   type EventDto,
@@ -60,6 +61,8 @@ function SpecialDashboard({ roles, lang }: { roles: string[]; lang: string }) {
 
       {eventId && <RegistrationsList eventId={eventId} canManage={mng} />}
       {eventId && <CaptureLookup eventId={eventId} canTiming={tim} />}
+      {mng && eventId && <SepaExport eventId={eventId} />}
+      {mng && eventId && <EventSettings eventId={eventId} />}
       {mng && eventId && <CompetitionSettings eventId={eventId} lang={lang} />}
       {eventId && <InternalResults eventId={eventId} lang={lang} />}
       {tim && eventId && <DeviceTokens eventId={eventId} />}
@@ -173,6 +176,105 @@ function RegistrationsList({ eventId, canManage }: { eventId: string; canManage:
           {t("admin.next")}
         </button>
       </div>
+    </>
+  );
+}
+
+function SepaExport({ eventId }: { eventId: string }) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const { blob, filename } = await downloadSepaExport(eventId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <h3>{t("admin.sepaExport")}</h3>
+      <p className="hint">{t("admin.sepaExportHint")}</p>
+      {error && <p className="error">{error}</p>}
+      <button className="primary" onClick={run} disabled={busy}>
+        {busy ? t("common.loading") : t("admin.sepaExportBtn")}
+      </button>
+    </>
+  );
+}
+
+function EventSettings({ eventId }: { eventId: string }) {
+  const { t } = useI18n();
+  const [text, setText] = useState("");
+  const [cutoff, setCutoff] = useState("");
+  const [included, setIncluded] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.listEvents().then((e) => {
+      const ev = e.find((x) => x.id === eventId);
+      setText((ev?.tshirt_options ?? []).join("\n"));
+      setCutoff(ev?.junior_cutoff_date ?? "");
+      setIncluded(ev?.tshirt_included ?? false);
+      setSaved(false);
+    });
+  }, [eventId]);
+
+  const save = async () => {
+    const opts = text.split("\n").map((s) => s.trim()).filter(Boolean);
+    await adminApi.updateEvent(eventId, {
+      tshirt_options: opts,
+      junior_cutoff_date: cutoff || null,
+      tshirt_included: included,
+    });
+    setSaved(true);
+  };
+
+  return (
+    <>
+      <h3>{t("admin.eventSettings")}</h3>
+      <label>
+        {t("admin.tshirtOptions")}
+        <textarea rows={6} value={text} onChange={(e) => { setText(e.target.value); setSaved(false); }} />
+      </label>
+      <p className="hint">{t("admin.tshirtOptionsHint")}</p>
+
+      <div className="row">
+        <label>
+          {t("admin.juniorCutoff")}
+          <input
+            type="date"
+            value={cutoff}
+            onChange={(e) => { setCutoff(e.target.value); setSaved(false); }}
+          />
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={included}
+            onChange={(e) => { setIncluded(e.target.checked); setSaved(false); }}
+          />
+          {t("admin.tshirtIncluded")}
+        </label>
+      </div>
+      <p className="hint">{t("admin.juniorCutoffHint")}</p>
+
+      <button className="primary" onClick={save}>
+        {t("manage.save")}
+      </button>
+      {saved && <span className="hint"> ✓</span>}
     </>
   );
 }

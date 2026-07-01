@@ -13,6 +13,7 @@ export function ManagePage() {
   const [email, setEmail] = useState("");
   const [competitionId, setCompetitionId] = useState("");
   const [team, setTeam] = useState("");
+  const [tshirt, setTshirt] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -28,6 +29,7 @@ export function ManagePage() {
         setCompetitionId(d.registration.competition_id);
         // Team vorbelegen: aktuelles Team oder Vorschlag aus früherer Anmeldung.
         setTeam(d.team ?? d.suggested_team ?? "");
+        setTshirt(d.tshirt ?? "");
         return api.listCompetitions(d.event_id);
       })
       .then((c) => c && setCompetitions(c))
@@ -39,7 +41,7 @@ export function ManagePage() {
     setSaved(false);
     setError("");
     try {
-      await api.updateManage(token, { email, competition_id: competitionId, team });
+      await api.updateManage(token, { email, competition_id: competitionId, team, tshirt });
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error"));
@@ -100,6 +102,16 @@ export function ManagePage() {
         {showSuggestion && (
           <span className="hint">{t("manage.teamSuggestion", { team: data.suggested_team || "" })}</span>
         )}
+      </label>
+
+      <label>
+        {t("register.tshirt")}
+        <select value={tshirt} onChange={(e) => setTshirt(e.target.value)}>
+          <option value="">{t("common.choose")}</option>
+          {data.tshirt_options.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
       </label>
 
       {saved && <p className="success">{t("manage.saved")}</p>}

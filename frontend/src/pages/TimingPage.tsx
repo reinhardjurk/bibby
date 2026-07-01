@@ -57,7 +57,7 @@ export function TimingPage() {
       setToken(urlToken);
       setEventId(urlEvent);
       setConfigured(true);
-      navigate("/timing", { replace: true }); // Token aus URL/History entfernen
+      navigate("/team/zeiterfassung", { replace: true }); // Token aus URL/History entfernen
     }
   }, []);
 

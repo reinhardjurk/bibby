@@ -1,6 +1,5 @@
-import { NavLink, Route, Routes } from "react-router-dom";
-import { LanguageSwitcher } from "./components/LanguageSwitcher";
-import { useI18n } from "./i18n";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { AdminLayout, RunnerLayout } from "./components/Layouts";
 import { AdminPage } from "./pages/AdminPage";
 import { ManagePage } from "./pages/ManagePage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -8,31 +7,35 @@ import { ResultsPage } from "./pages/ResultsPage";
 import { SpecialAdminPage } from "./pages/SpecialAdminPage";
 import { TimingPage } from "./pages/TimingPage";
 
+/** Alte QR-/Deep-Links auf die neue Zeiterfassungs-URL (inkl. Query). */
+function TimingRedirect() {
+  const loc = useLocation();
+  return <Navigate to={`/team/zeiterfassung${loc.search}`} replace />;
+}
+
 export default function App() {
-  const { t } = useI18n();
   return (
-    <div className="app">
-      <header>
-        <span className="brand">{t("app.title")}</span>
-        <nav>
-          <NavLink to="/" end>{t("nav.register")}</NavLink>
-          <NavLink to="/results">{t("nav.results")}</NavLink>
-          <NavLink to="/timing">{t("nav.timing")}</NavLink>
-          <NavLink to="/admin">{t("nav.admin")}</NavLink>
-          <NavLink to="/special-admin">{t("nav.special")}</NavLink>
-        </nav>
-        <LanguageSwitcher />
-      </header>
-      <main>
-        <Routes>
-          <Route path="/" element={<RegisterPage />} />
-          <Route path="/manage" element={<ManagePage />} />
-          <Route path="/results" element={<ResultsPage />} />
-          <Route path="/timing" element={<TimingPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/special-admin" element={<SpecialAdminPage />} />
-        </Routes>
-      </main>
-    </div>
+    <Routes>
+      {/* Läufer-Bereich */}
+      <Route element={<RunnerLayout />}>
+        <Route path="/" element={<Navigate to="/teilnahme" replace />} />
+        <Route path="/teilnahme" element={<RegisterPage />} />
+        <Route path="/teilnahme/ergebnisse" element={<ResultsPage />} />
+        <Route path="/manage" element={<ManagePage />} />
+      </Route>
+
+      {/* Staff-Bereich */}
+      <Route path="/team" element={<AdminLayout />}>
+        <Route index element={<AdminPage />} />
+        <Route path="special" element={<SpecialAdminPage />} />
+        <Route path="zeiterfassung" element={<TimingPage />} />
+      </Route>
+
+      {/* Weiterleitungen von den alten Pfaden */}
+      <Route path="/results" element={<Navigate to="/teilnahme/ergebnisse" replace />} />
+      <Route path="/admin" element={<Navigate to="/team" replace />} />
+      <Route path="/special-admin" element={<Navigate to="/team/special" replace />} />
+      <Route path="/timing" element={<TimingRedirect />} />
+    </Routes>
   );
 }

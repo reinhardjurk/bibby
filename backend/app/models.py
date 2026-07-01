@@ -53,6 +53,13 @@ class Event(Base):
     location: Mapped[str | None]
     default_start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     registration_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Konfigurierbare T-Shirt-Optionen (Liste von Strings). NULL = Default.
+    tshirt_options: Mapped[list | None] = mapped_column(JSONB)
+    # Wer an oder nach diesem Datum geboren ist, zahlt den ermäßigten (Jugend-)
+    # Preis. NULL = keine Ermäßigung (alle zahlen den Erwachsenenpreis).
+    junior_cutoff_date: Mapped[date | None] = mapped_column(Date)
+    # T-Shirt im Startgeld enthalten (informativ; ändert den Preis nicht).
+    tshirt_included: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     competitions: Mapped[list[Competition]] = relationship(back_populates="event")
@@ -66,7 +73,9 @@ class Competition(Base):
     lap_count: Mapped[int] = mapped_column(Integer)
     title_i18n: Mapped[dict | None] = mapped_column(JSONB)
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Erwachsenen-/Standardpreis; Jugendpreis optional (NULL = wie Erwachsene).
     price_cents: Mapped[int] = mapped_column(Integer, default=0)
+    price_junior_cents: Mapped[int | None] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
 
     event: Mapped[Event] = relationship(back_populates="competitions")
@@ -102,6 +111,8 @@ class Registration(Base):
     language: Mapped[str] = mapped_column(String(5), default="de")
     # Optionale Teamzugehörigkeit (kann je Jahr abweichen).
     team: Mapped[str | None] = mapped_column(String)
+    # Gewählte T-Shirt-Option (aus event.tshirt_options).
+    tshirt: Mapped[str | None] = mapped_column(String)
     # Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status: Mapped[str] = mapped_column(String, default="confirmed")
     # Gespeicherte Netto-Laufzeit (Sek.), berechnet per "Alle Laufzeiten berechnen".
@@ -167,6 +178,8 @@ class Payment(Base):
     account_holder: Mapped[str | None] = mapped_column(String)
     mandate_reference: Mapped[str | None] = mapped_column(String, unique=True)
     mandate_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Zeitpunkt des letzten SEPA-CSV-Exports (NULL = noch nicht exportiert).
+    sepa_exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

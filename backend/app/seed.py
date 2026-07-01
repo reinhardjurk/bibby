@@ -46,17 +46,22 @@ async def seed() -> None:
             year=2026,
             event_date=date(2026, 9, 12),
             default_start_time=START_2026,
+            junior_cutoff_date=date(2008, 1, 1),  # ab Jg. 2008 = ermäßigt
+            tshirt_included=True,
         )
         s.add_all([event2025, event2026])
         await s.flush()
 
         # --- Wettbewerbe (Rundenzahl) für 2026 ---
         comp1 = Competition(event_id=event2026.id, lap_count=1, start_time=START_2026,
-                            price_cents=1500, title_i18n={"de": "Kurz (1 Runde)", "en": "Short (1 lap)"})
+                            price_cents=1500, price_junior_cents=800,
+                            title_i18n={"de": "Kurz (1 Runde)", "en": "Short (1 lap)"})
         comp2 = Competition(event_id=event2026.id, lap_count=2, start_time=START_2026,
-                            price_cents=2000, title_i18n={"de": "Mittel (2 Runden)", "en": "Medium (2 laps)"})
+                            price_cents=2000, price_junior_cents=1000,
+                            title_i18n={"de": "Mittel (2 Runden)", "en": "Medium (2 laps)"})
         comp3 = Competition(event_id=event2026.id, lap_count=3, start_time=START_2026,
-                            price_cents=2500, title_i18n={"de": "Lang (3 Runden)", "en": "Long (3 laps)"})
+                            price_cents=2500, price_junior_cents=1200,
+                            title_i18n={"de": "Lang (3 Runden)", "en": "Long (3 laps)"})
         # Vorjahres-Wettbewerb, damit ein Teilnehmer wiederkehrt.
         comp2025 = Competition(event_id=event2025.id, lap_count=2)
         s.add_all([comp1, comp2, comp3, comp2025])
@@ -164,7 +169,7 @@ async def seed() -> None:
         print("seed: Verwaltungslinks (Startnummer-PDF testbar):")
         for name, bib, raw in manage_links:
             print(f"  #{bib} {name}: {settings.public_base_url}/manage?token={raw}")
-        print(f"seed: Admin-Login -> {settings.public_base_url}/admin")
+        print(f"seed: Admin-Login -> {settings.public_base_url}/team")
         print("      E-Mail: admin@example.com   Passwort: admin")
 
 

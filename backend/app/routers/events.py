@@ -8,10 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..db import get_session
 from ..models import Competition, Event, Registration
 
 router = APIRouter(tags=["events"])
+
+
+def event_tshirt_options(event: Event) -> list[str]:
+    return event.tshirt_options or settings.default_tshirt_options
 
 
 @router.get("/teams")
@@ -43,6 +48,9 @@ async def list_events(session: AsyncSession = Depends(get_session)) -> list[dict
             "registration_deadline": e.registration_deadline.isoformat()
             if e.registration_deadline
             else None,
+            "tshirt_options": event_tshirt_options(e),
+            "junior_cutoff_date": e.junior_cutoff_date.isoformat() if e.junior_cutoff_date else None,
+            "tshirt_included": e.tshirt_included,
         }
         for e in rows
     ]
@@ -68,6 +76,7 @@ async def list_competitions(
             "lap_count": c.lap_count,
             "title_i18n": c.title_i18n,
             "price_cents": c.price_cents,
+            "price_junior_cents": c.price_junior_cents,
             "currency": c.currency,
             "start_time": c.start_time.isoformat() if c.start_time else None,
         }

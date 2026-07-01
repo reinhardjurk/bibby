@@ -20,6 +20,9 @@ export type EventDto = {
   year: number;
   event_date: string;
   registration_deadline: string | null;
+  tshirt_options: string[];
+  junior_cutoff_date: string | null;
+  tshirt_included: boolean;
 };
 
 export type CompetitionDto = {
@@ -27,6 +30,7 @@ export type CompetitionDto = {
   lap_count: number;
   title_i18n: Record<string, string> | null;
   price_cents: number;
+  price_junior_cents: number | null;
   currency: string;
   start_time: string | null;
 };
@@ -51,6 +55,8 @@ export type ManageView = {
   competition_lap_count: number;
   team: string | null;
   suggested_team: string | null;
+  tshirt: string | null;
+  tshirt_options: string[];
   payment_method: string | null;
   payment_status: string | null;
   payment_iban_masked: string | null;
@@ -159,6 +165,8 @@ export type AdminRegistrationDetail = {
   email: string;
   language: string;
   team: string | null;
+  tshirt: string | null;
+  tshirt_options: string[];
   consent_data: boolean;
   consent_publish: boolean;
   status: string;
@@ -186,6 +194,7 @@ export type AdminRegistrationUpdate = Partial<{
   competition_id: string;
   payment_method: string | null;
   payment_status: string | null;
+  tshirt: string | null;
 }>;
 
 export const adminApi = {
@@ -227,11 +236,22 @@ export const adminApi = {
     adminReq(`/admin/device-tokens/${id}`, { method: "DELETE" }),
   internalResults: (eventId: string, competitionId: string) =>
     adminReq<ResultList>(`/admin/events/${eventId}/results?competition_id=${competitionId}`),
-  updateCompetition: (id: string, body: { start_time: string | null; price_cents?: number }) =>
-    adminReq<{ id: string; start_time: string | null; price_cents: number }>(
+  updateCompetition: (
+    id: string,
+    body: { start_time?: string | null; price_cents?: number; price_junior_cents?: number | null }
+  ) =>
+    adminReq<{ id: string; price_cents: number; price_junior_cents: number | null }>(
       `/admin/competitions/${id}`,
       { method: "PATCH", body: JSON.stringify(body) }
     ),
+  updateEvent: (
+    eventId: string,
+    body: { tshirt_options?: string[]; junior_cutoff_date?: string | null; tshirt_included?: boolean }
+  ) =>
+    adminReq<{ id: string }>(`/admin/events/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   recomputeTimes: (eventId: string) =>
     adminReq<{ updated: number }>(`/admin/events/${eventId}/recompute-times`, { method: "POST" }),
   listTimings: (eventId: string, bib: number) =>
@@ -242,6 +262,23 @@ export const adminApi = {
   ) => adminReq(`/timings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTiming: (id: string) => adminReq(`/timings/${id}`, { method: "DELETE" }),
 };
+
+/** SEPA-Lastschriften als CSV (mit Auth-Header) laden – gibt Blob + Dateiname. */
+export async function downloadSepaExport(
+  eventId: string
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(`${BASE}/admin/events/${eventId}/sepa-export`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${adminToken.get()}` },
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error((d as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename="?([^"]+)"?/);
+  return { blob: await res.blob(), filename: m ? m[1] : "sepa-export.csv" };
+}
 
 /** Zeiterfassung: sendet erfasste Paare an die Ingestion-API (Geräte-Token). */
 export async function sendTimings(

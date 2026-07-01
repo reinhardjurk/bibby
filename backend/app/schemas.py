@@ -19,6 +19,7 @@ class RegistrationCreate(BaseModel):
     email: EmailStr
     language: str = "de"
     team: str | None = None
+    tshirt: str | None = None
     consent_data: bool
     consent_publish: bool = False
 
@@ -50,6 +51,7 @@ class RegistrationUpdate(BaseModel):
     # team kann gesetzt oder geleert ("") werden; daher eigenes "übergeben?"-Flag
     # ist nicht nötig – None = unverändert, "" = leeren.
     team: str | None = None
+    tshirt: str | None = None
 
 
 class ManageView(BaseModel):
@@ -62,6 +64,8 @@ class ManageView(BaseModel):
     team: str | None = None
     # Vorschlag aus einer früheren Anmeldung derselben Person (falls vorhanden).
     suggested_team: str | None = None
+    tshirt: str | None = None
+    tshirt_options: list[str] = []
     payment_method: str | None = None
     payment_status: str | None = None
     payment_iban_masked: str | None = None
@@ -145,7 +149,14 @@ class ParticipantMerge(BaseModel):
 class CompetitionUpdate(BaseModel):
     # Absolute Startzeit der Strecke (für die Laufzeitberechnung).
     start_time: datetime | None = None
-    price_cents: int | None = None
+    price_cents: int | None = None            # Erwachsenen-/Standardpreis
+    price_junior_cents: int | None = None     # Jugendpreis (null = wie Erwachsene)
+
+
+class EventUpdate(BaseModel):
+    tshirt_options: list[str] | None = None
+    junior_cutoff_date: date | None = None    # Geburtsdatum ab hier = ermäßigt
+    tshirt_included: bool | None = None
 
 
 class DeviceTokenCreate(BaseModel):
@@ -172,6 +183,8 @@ class AdminRegistrationDetail(BaseModel):
     email: EmailStr
     language: str
     team: str | None
+    tshirt: str | None
+    tshirt_options: list[str] = []
     consent_data: bool
     consent_publish: bool
     status: str
@@ -201,3 +214,4 @@ class AdminRegistrationUpdate(BaseModel):
     competition_id: uuid.UUID | None = None
     payment_method: str | None = None
     payment_status: str | None = None
+    tshirt: str | None = None
