@@ -142,6 +142,12 @@ class ParticipantMerge(BaseModel):
     target_participant_id: uuid.UUID
 
 
+class CompetitionUpdate(BaseModel):
+    # Absolute Startzeit der Strecke (für die Laufzeitberechnung).
+    start_time: datetime | None = None
+    price_cents: int | None = None
+
+
 class DeviceTokenCreate(BaseModel):
     label: str
     time_offset_seconds: int = 0

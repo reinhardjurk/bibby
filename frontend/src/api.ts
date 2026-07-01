@@ -28,7 +28,10 @@ export type CompetitionDto = {
   title_i18n: Record<string, string> | null;
   price_cents: number;
   currency: string;
+  start_time: string | null;
 };
+
+export type TimingPing = { bib_number: number; absolute_time: string; dedup_key: string };
 
 export type RegistrationOut = {
   id: string;
@@ -127,6 +130,7 @@ export type AdminRegistration = {
   lap_count: number;
   payment_method: string | null;
   payment_status: string | null;
+  finish_seconds: number | null;
 };
 
 export type DeviceTokenDto = {
@@ -138,6 +142,13 @@ export type DeviceTokenDto = {
 };
 
 export type AdminRegistrationList = { total: number; items: AdminRegistration[] };
+
+export type TimingRow = {
+  id: string;
+  absolute_time: string;
+  lap_index: number | null;
+  status: string;
+};
 
 export type AdminRegistrationDetail = {
   id: string;
@@ -216,7 +227,39 @@ export const adminApi = {
     adminReq(`/admin/device-tokens/${id}`, { method: "DELETE" }),
   internalResults: (eventId: string, competitionId: string) =>
     adminReq<ResultList>(`/admin/events/${eventId}/results?competition_id=${competitionId}`),
+  updateCompetition: (id: string, body: { start_time: string | null; price_cents?: number }) =>
+    adminReq<{ id: string; start_time: string | null; price_cents: number }>(
+      `/admin/competitions/${id}`,
+      { method: "PATCH", body: JSON.stringify(body) }
+    ),
+  recomputeTimes: (eventId: string) =>
+    adminReq<{ updated: number }>(`/admin/events/${eventId}/recompute-times`, { method: "POST" }),
+  listTimings: (eventId: string, bib: number) =>
+    adminReq<TimingRow[]>(`/events/${eventId}/timings/${bib}`),
+  correctTiming: (
+    id: string,
+    body: { status: string; bib_number?: number; absolute_time?: string }
+  ) => adminReq(`/timings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteTiming: (id: string) => adminReq(`/timings/${id}`, { method: "DELETE" }),
 };
+
+/** Zeiterfassung: sendet erfasste Paare an die Ingestion-API (Geräte-Token). */
+export async function sendTimings(
+  eventId: string,
+  token: string,
+  pings: TimingPing[]
+): Promise<{ accepted: number; duplicates: number }> {
+  const res = await fetch(`${BASE}/events/${eventId}/timings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ pings }),
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error((d as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
 
 export function formatTime(seconds: number | null): string {
   if (seconds == null) return "–";

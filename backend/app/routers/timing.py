@@ -76,12 +76,35 @@ async def correct(
     rec = await session.get(TimingRecord, record_id)
     if rec is None:
         raise HTTPException(404, "Datensatz nicht gefunden")
+    old_bib = rec.bib_number
     if body.bib_number is not None:
         rec.bib_number = body.bib_number
     if body.absolute_time is not None:
         rec.absolute_time = body.absolute_time
     rec.status = body.status
+    await session.flush()
     await services.recompute_laps(session, rec.event_id, rec.bib_number)
+    # Bei geänderter Startnummer auch die alte neu ableiten.
+    if body.bib_number is not None and body.bib_number != old_bib:
+        await services.recompute_laps(session, rec.event_id, old_bib)
+    await session.commit()
+    return {"ok": True}
+
+
+@router.delete("/timings/{record_id}")
+async def delete_timing(
+    record_id: uuid.UUID,
+    _user=Depends(require_roles("timing")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Löscht eine einzelne Erfassung und leitet die Runden der Startnummer neu ab."""
+    rec = await session.get(TimingRecord, record_id)
+    if rec is None:
+        raise HTTPException(404, "Datensatz nicht gefunden")
+    event_id, bib = rec.event_id, rec.bib_number
+    await session.delete(rec)
+    await session.flush()
+    await services.recompute_laps(session, event_id, bib)
     await session.commit()
     return {"ok": True}
 

@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -103,6 +104,9 @@ class Registration(Base):
     team: Mapped[str | None] = mapped_column(String)
     # Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status: Mapped[str] = mapped_column(String, default="confirmed")
+    # Gespeicherte Netto-Laufzeit (Sek.), berechnet per "Alle Laufzeiten berechnen".
+    # None = noch nicht berechnet oder Zielrunde nicht erreicht (DNF).
+    finish_seconds: Mapped[float | None] = mapped_column(Float)
     manage_token_hash: Mapped[str] = mapped_column(String, unique=True)
     consent_data: Mapped[bool] = mapped_column(Boolean, default=False)
     consent_publish: Mapped[bool] = mapped_column(Boolean, default=False)

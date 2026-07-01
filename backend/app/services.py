@@ -265,6 +265,60 @@ async def build_results(
     return [r for r in rows if r.published or not only_published]
 
 
+async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> int:
+    """Berechnet für alle bestätigten Anmeldungen mit Startnummer die Netto-
+    Laufzeit (Zielüberquerung − Startzeit) neu und speichert sie in
+    registration.finish_seconds. Läuft dabei zuerst die Rundenableitung für alle
+    Startnummern erneut. Rückgabe: Anzahl aktualisierter Anmeldungen.
+    """
+    event = await session.get(Event, event_id)
+
+    comps = {
+        c.id: c
+        for c in (
+            await session.execute(select(Competition).where(Competition.event_id == event_id))
+        ).scalars().all()
+    }
+
+    rows = (
+        await session.execute(
+            select(Registration, BibAssignment)
+            .join(BibAssignment, BibAssignment.registration_id == Registration.id)
+            .where(Registration.event_id == event_id, Registration.status == "confirmed")
+        )
+    ).all()
+
+    # Runden für alle beteiligten Startnummern neu ableiten.
+    for _reg, bib in rows:
+        await recompute_laps(session, event_id, bib.bib_number)
+    await session.flush()
+
+    # Zielüberquerungen (lap_index gesetzt) einmalig laden und indizieren.
+    crossings = (
+        await session.execute(
+            select(TimingRecord).where(
+                TimingRecord.event_id == event_id, TimingRecord.lap_index.isnot(None)
+            )
+        )
+    ).scalars().all()
+    by_key = {(t.bib_number, t.lap_index): t for t in crossings}
+
+    count = 0
+    for reg, bib in rows:
+        comp = comps.get(reg.competition_id)
+        start = (comp.start_time or event.default_start_time) if comp else None
+        finish = None
+        if comp and start is not None:
+            crossing = by_key.get((bib.bib_number, comp.lap_count))
+            if crossing is not None:
+                finish = (crossing.absolute_time - start).total_seconds()
+        reg.finish_seconds = finish
+        count += 1
+
+    await session.commit()
+    return count
+
+
 # =========================================================================
 # Externe Integrationen (STUBS)
 # =========================================================================

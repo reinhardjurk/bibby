@@ -73,6 +73,8 @@ CREATE TABLE registration (
     -- Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status              TEXT NOT NULL DEFAULT 'confirmed'
                           CHECK (status IN ('confirmed', 'cancelled')),
+    -- Gespeicherte Netto-Laufzeit (Sek.); NULL = nicht berechnet / DNF.
+    finish_seconds      DOUBLE PRECISION,
     -- Magic-Link zur Selbstverwaltung: nur Hash gespeichert.
     manage_token_hash   TEXT NOT NULL UNIQUE,
     consent_data        BOOLEAN NOT NULL DEFAULT false,   -- Datenverarbeitung

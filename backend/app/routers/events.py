@@ -69,6 +69,7 @@ async def list_competitions(
             "title_i18n": c.title_i18n,
             "price_cents": c.price_cents,
             "currency": c.currency,
+            "start_time": c.start_time.isoformat() if c.start_time else None,
         }
         for c in rows
     ]

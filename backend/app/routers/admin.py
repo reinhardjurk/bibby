@@ -27,6 +27,7 @@ from ..schemas import (
     AdminRegistrationDetail,
     AdminRegistrationUpdate,
     BibReassign,
+    CompetitionUpdate,
     DeviceTokenCreate,
     DeviceTokenOut,
     LoginRequest,
@@ -150,10 +151,22 @@ async def list_registrations(
             "lap_count": comp.lap_count,
             "payment_method": payments[reg.id].method if reg.id in payments else None,
             "payment_status": payments[reg.id].status if reg.id in payments else None,
+            "finish_seconds": reg.finish_seconds,
         }
         for reg, part, comp, bib in rows
     ]
     return {"total": total, "items": items}
+
+
+@router.post("/events/{event_id}/recompute-times")
+async def recompute_times(
+    event_id: uuid.UUID,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Berechnet alle persönlichen Laufzeiten (Erfassungszeit − Startzeit) neu."""
+    updated = await services.recompute_event_times(session, event_id)
+    return {"updated": updated}
 
 
 async def _registration_detail(
@@ -406,6 +419,31 @@ async def mark_paid(
     payment.status = "paid"
     await session.commit()
     return {"ok": True}
+
+
+# --- Strecken / Startzeiten -----------------------------------------------
+@router.patch("/competitions/{competition_id}")
+async def update_competition(
+    competition_id: uuid.UUID,
+    body: CompetitionUpdate,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Setzt u. a. die absolute Startzeit einer Strecke (für die Laufzeit)."""
+    comp = await session.get(Competition, competition_id)
+    if comp is None:
+        raise HTTPException(404, "Strecke nicht gefunden")
+    comp.start_time = body.start_time
+    if body.price_cents is not None:
+        comp.price_cents = body.price_cents
+    await session.commit()
+    return {
+        "id": str(comp.id),
+        "lap_count": comp.lap_count,
+        "start_time": comp.start_time.isoformat() if comp.start_time else None,
+        "price_cents": comp.price_cents,
+        "currency": comp.currency,
+    }
 
 
 # --- Teilnehmer mergen ----------------------------------------------------
