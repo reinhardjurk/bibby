@@ -21,6 +21,12 @@ variable "app_name" {
   default     = "bibby"
 }
 
+variable "deploy_container" {
+  description = "Container deployen. Erst true setzen, NACHDEM das Image gepusht wurde."
+  type        = bool
+  default     = false
+}
+
 # Eindeutiger Suffix, damit Bucket-Namen global eindeutig sind.
 variable "bucket_suffix" {
   description = "Eindeutiger Suffix für globale Bucket-Namen"

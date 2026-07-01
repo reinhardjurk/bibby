@@ -7,6 +7,7 @@ from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import settings
+from app.db import engine_kwargs
 from app.models import Base
 
 config = context.config
@@ -28,13 +29,18 @@ def run_migrations_offline() -> None:
 
 
 def _do_run_migrations(connection) -> None:
+    # Advisory-Lock: serialisiert Migrationen, falls beim Deploy mehrere
+    # Container-Instanzen gleichzeitig starten (Serverless). Wird beim
+    # Verbindungsende automatisch freigegeben.
+    connection.exec_driver_sql("SELECT pg_advisory_lock(823572001)")
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_migrations_online() -> None:
-    engine = create_async_engine(settings.database_url)
+    # dieselben Verbindungsparameter wie die App (inkl. SSL in Prod)
+    engine = create_async_engine(settings.database_url, **engine_kwargs())
     async with engine.connect() as connection:
         await connection.run_sync(_do_run_migrations)
     await engine.dispose()

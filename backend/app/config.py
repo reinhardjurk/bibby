@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="BIBBY_", env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://localhost/bibby"
+    # TLS zur DB erzwingen (Scaleway Serverless SQL verlangt SSL). Lokal false.
+    database_ssl: bool = False
     # HMAC-Schlüssel zum Hashen von Magic-Link- und Geräte-Tokens.
     secret_key: str = "change-me-in-production"
 

@@ -20,8 +20,11 @@ resource "scaleway_iam_api_key" "api" {
 }
 
 locals {
-  # asyncpg + SQLAlchemy. SSL-Handling ggf. über connect_args in db.py ergänzen.
-  database_url = "postgresql+asyncpg://${scaleway_iam_api_key.api.access_key}:${scaleway_iam_api_key.api.secret_key}@${scaleway_sdb_sql_database.main.endpoint}"
+  # Das endpoint-Attribut enthält ein "postgres://"-Präfix -> abschneiden und
+  # Credentials + asyncpg-Treiber einsetzen. SSL erledigt db.py (database_ssl).
+  # Auth: Username = API-Key Access-Key, Passwort = Secret-Key.
+  db_host      = trimprefix(scaleway_sdb_sql_database.main.endpoint, "postgres://")
+  database_url = "postgresql+asyncpg://${scaleway_iam_api_key.api.access_key}:${scaleway_iam_api_key.api.secret_key}@${local.db_host}"
 }
 
 resource "scaleway_container_namespace" "main" {
@@ -37,10 +40,11 @@ resource "scaleway_container" "api" {
   memory_limit   = 1024
   min_scale      = 0
   max_scale      = 5
-  deploy         = true
+  deploy         = var.deploy_container
 
   environment_variables = {
     BIBBY_PUBLIC_BASE_URL    = var.public_base_url
+    BIBBY_DATABASE_SSL       = "true"
     BIBBY_CORS_ORIGINS       = jsonencode(var.cors_origins)
     BIBBY_SEPA_CREDITOR_NAME = var.sepa_creditor_name
     BIBBY_SEPA_CREDITOR_ID   = var.sepa_creditor_id

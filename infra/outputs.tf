@@ -24,8 +24,14 @@ output "pdf_bucket" {
 }
 
 output "db_endpoint" {
-  description = "Endpoint der Serverless SQL Database"
+  description = "Endpoint der Serverless SQL Database (roh, mit postgres://-Präfix)"
   value       = scaleway_sdb_sql_database.main.endpoint
+}
+
+output "database_url" {
+  description = "Zusammengesetzte DATABASE_URL (asyncpg) – zum Prüfen/Debuggen"
+  value       = local.database_url
+  sensitive   = true
 }
 
 output "tem_dns_records" {

@@ -13,37 +13,43 @@ Provisioniert die serverlose Umgebung auf Scaleway.
 ## Reihenfolge
 
 ```bash
-# 0. Anmeldedaten
+# 0. Anmeldedaten + Secrets
 export SCW_ACCESS_KEY=... SCW_SECRET_KEY=... SCW_DEFAULT_PROJECT_ID=...
 export TF_VAR_app_secret_key=... TF_VAR_field_encryption_key=... TF_VAR_tem_secret_key=...
 
 cd infra
 cp terraform.tfvars.example terraform.tfvars   # restliche Werte eintragen
-terraform init
-terraform apply
+terraform init && terraform validate
 
-# 1. API-Image bauen & pushen (Registry-Endpoint aus dem Output)
+# 1. Infra anlegen (Container noch NICHT deployen – Image fehlt ja noch)
+terraform apply            # deploy_container=false (Default)
+
+# 2. API-Image bauen & pushen
 REG=$(terraform output -raw registry_endpoint)
 docker build -t $REG/bibby-api:latest ../backend
 docker login $REG -u nologin -p $SCW_SECRET_KEY
 docker push $REG/bibby-api:latest
-terraform apply   # Container zieht das Image
 
-# 2. DB-Schema einspielen (DATABASE_URL aus db_endpoint + IAM-Key)
-psql "<connection-string>" -f ../db/schema.sql
+# 3. Jetzt den Container deployen (zieht das Image; Migrationen laufen beim Start)
+terraform apply -var deploy_container=true
 
-# 3. SPA bauen & hochladen
+# 4. SPA bauen & hochladen (VITE_API_BASE = terraform output api_endpoint)
 cd ../frontend && npm run build
+AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY \
 aws s3 sync dist/ s3://$(cd ../infra && terraform output -raw spa_bucket) \
   --endpoint-url https://s3.fr-par.scw.cloud
 ```
 
+Migrationen laufen **automatisch** beim Container-Start (`alembic upgrade head`
+im Dockerfile-CMD, per Advisory-Lock gegen parallele Instanzen abgesichert).
+Der Seed läuft in Prod NICHT.
+
 ## Noch manuell / zu verifizieren
 
-- **DATABASE_URL**: In `container.tf` aus Endpoint + IAM-Key zusammengesetzt.
-  Format nach dem ersten `apply` gegen `terraform output db_endpoint` prüfen.
-  Für asyncpg muss SSL ggf. über `connect_args` in `backend/app/db.py` gesetzt
-  werden (Serverless SQL verlangt TLS).
+- **DB-Verbindung**: `database_ssl=true` ist gesetzt (TLS + asyncpg-Statement-Cache
+  aus). Nach dem ersten Deploy die Container-Logs prüfen; bei Auth-Fehlern ist der
+  Username ggf. die Application-ID statt des Access-Keys (in `container.tf` anpassbar).
+  `terraform output database_url` (sensitiv) zeigt die konstruierte URL.
 - **TEM-DNS**: Nach `apply` die ausgegebenen SPF/DKIM/MX-Records bei der Domain
   hinterlegen; Scaleway verifiziert dann automatisch.
 - **CDN/TLS + eigene Domain**: Über **Scaleway Edge Services** vor den
