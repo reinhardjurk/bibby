@@ -233,6 +233,8 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
   const setComp = (i: number, patch: Partial<CompRow>) =>
     setComps(comps.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
 
+  const addComp = () => setComps([...comps, { ...emptyComp(), lap_count: "1" }]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
@@ -324,7 +326,7 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
           {comps.map((c, i) => (
             <tr key={i}>
               <td><input type="number" style={{ width: 60 }} value={c.lap_count} onChange={(e) => setComp(i, { lap_count: e.target.value })} required /></td>
-              <td><input value={c.title} onChange={(e) => setComp(i, { title: e.target.value })} /></td>
+              <td><input value={c.title} onChange={(e) => setComp(i, { title: e.target.value })} required /></td>
               <td><input type="number" step="0.01" style={{ width: 80 }} value={c.price} onChange={(e) => setComp(i, { price: e.target.value })} /></td>
               <td><input type="number" step="0.01" style={{ width: 80 }} placeholder="–" value={c.priceJunior} onChange={(e) => setComp(i, { priceJunior: e.target.value })} /></td>
               <td><input type="datetime-local" value={c.startTime} onChange={(e) => setComp(i, { startTime: e.target.value })} /></td>
@@ -340,7 +342,7 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
         </tbody>
       </table>
       <p>
-        <button type="button" onClick={() => setComps([...comps, emptyComp()])}>
+        <button type="button" onClick={addComp}>
           {t("admin.addCompetition")}
         </button>
       </p>

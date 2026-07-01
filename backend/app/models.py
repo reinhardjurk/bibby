@@ -80,10 +80,9 @@ class Competition(Base):
 
     event: Mapped[Event] = relationship(back_populates="competitions")
 
-    __table_args__ = (
-        UniqueConstraint("event_id", "lap_count", name="uq_competition_event_lap"),
-        CheckConstraint("lap_count >= 1", name="ck_competition_lap_count"),
-    )
+    # Mehrere Strecken je Event dürfen dieselbe Rundenzahl haben (z. B.
+    # "3,3 km Running" und "3,3 km Walking"); Unterscheidung über den Namen.
+    __table_args__ = (CheckConstraint("lap_count >= 1", name="ck_competition_lap_count"),)
 
 
 class Category(Base):

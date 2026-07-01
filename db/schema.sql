@@ -46,8 +46,9 @@ CREATE TABLE competition (
     start_time      TIMESTAMPTZ,            -- überschreibt event.default_start_time (gestaffelter Start)
     price_cents     INT  NOT NULL DEFAULT 0,   -- Erwachsenen-/Standardpreis
     price_junior_cents INT,                     -- Jugendpreis (NULL = wie Erwachsene)
-    currency        TEXT NOT NULL DEFAULT 'EUR',
-    UNIQUE (event_id, lap_count)
+    currency        TEXT NOT NULL DEFAULT 'EUR'
+    -- Mehrere Strecken je Event dürfen dieselbe Rundenzahl haben
+    -- (z. B. "3,3 km Running" / "3,3 km Walking"); Unterscheidung über den Namen.
 );
 
 -- Altersklassen/Gruppen-Regeln je Event (zum Wettkampftag ausgewertet).

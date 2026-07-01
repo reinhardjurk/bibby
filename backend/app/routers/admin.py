@@ -549,9 +549,6 @@ async def create_event(
     Daten bleiben unberührt (jahresübergreifende Historie)."""
     if not body.competitions:
         raise HTTPException(422, "Mindestens eine Strecke erforderlich")
-    laps = [c.lap_count for c in body.competitions]
-    if len(set(laps)) != len(laps):
-        raise HTTPException(422, "Rundenzahl je Strecke muss eindeutig sein")
 
     event = Event(
         name=body.name,
