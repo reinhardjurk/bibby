@@ -137,6 +137,8 @@ export type DeviceTokenDto = {
   active: boolean;
 };
 
+export type AdminRegistrationList = { total: number; items: AdminRegistration[] };
+
 export type AdminRegistrationDetail = {
   id: string;
   first_name: string;
@@ -182,9 +184,10 @@ export const adminApi = {
       body: JSON.stringify({ email, password }),
     }),
   me: () => adminReq<SessionInfo>("/admin/me"),
-  listRegistrations: (eventId: string, q = "") =>
-    adminReq<AdminRegistration[]>(
-      `/admin/registrations?event_id=${eventId}${q ? `&q=${encodeURIComponent(q)}` : ""}`
+  listRegistrations: (eventId: string, q = "", limit = 50, offset = 0) =>
+    adminReq<AdminRegistrationList>(
+      `/admin/registrations?event_id=${eventId}&limit=${limit}&offset=${offset}` +
+        (q ? `&q=${encodeURIComponent(q)}` : "")
     ),
   getRegistration: (id: string) =>
     adminReq<AdminRegistrationDetail>(`/admin/registrations/${id}`),

@@ -74,37 +74,71 @@ async def me(
     return SessionToken(token="(current)", expires_at=datetime.now(timezone.utc), roles=sorted(roles))
 
 
-# --- Anmeldungen auflisten ------------------------------------------------
+# --- Anmeldungen auflisten (paginiert + Suche) ----------------------------
 @router.get("/registrations")
 async def list_registrations(
     event_id: uuid.UUID,
     q: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
     _user=Depends(require_roles("admin", "race_office", "timing", "viewer")),
     session: AsyncSession = Depends(get_session),
-) -> list[dict]:
-    stmt = (
-        select(Registration, Participant, Competition, BibAssignment, Payment)
-        .join(Participant, Participant.id == Registration.participant_id)
-        .join(Competition, Competition.id == Registration.competition_id)
-        .outerjoin(BibAssignment, BibAssignment.registration_id == Registration.id)
-        .outerjoin(Payment, Payment.registration_id == Registration.id)
-        .where(Registration.event_id == event_id)
-        .order_by(BibAssignment.bib_number)
-    )
+) -> dict:
+    limit = max(1, min(limit, 200))  # Deckel gegen zu große Seiten
+
+    conds = [Registration.event_id == event_id]
     # Suche nach Name (Teilstring) oder Startnummer.
     if q and q.strip():
         term = q.strip().lower()
         like = f"%{term}%"
-        conds = [
+        oc = [
             func.lower(Participant.first_name).like(like),
             func.lower(Participant.last_name).like(like),
         ]
         if term.isdigit():
-            conds.append(BibAssignment.bib_number == int(term))
-        stmt = stmt.where(or_(*conds))
+            oc.append(BibAssignment.bib_number == int(term))
+        conds.append(or_(*oc))
 
-    rows = (await session.execute(stmt)).all()
-    return [
+    # Gesamtzahl (für die Seitennavigation). Bib/Participant sind 1:1, keine
+    # Zeilenvervielfachung -> Count bleibt korrekt.
+    total = (
+        await session.execute(
+            select(func.count())
+            .select_from(Registration)
+            .join(Participant, Participant.id == Registration.participant_id)
+            .outerjoin(BibAssignment, BibAssignment.registration_id == Registration.id)
+            .where(*conds)
+        )
+    ).scalar_one()
+
+    # Eine Seite. Payment bewusst NICHT gejoint (könnte Zeilen vervielfachen und
+    # damit limit/offset verfälschen); wird separat je Seite nachgeladen.
+    rows = (
+        await session.execute(
+            select(Registration, Participant, Competition, BibAssignment)
+            .join(Participant, Participant.id == Registration.participant_id)
+            .join(Competition, Competition.id == Registration.competition_id)
+            .outerjoin(BibAssignment, BibAssignment.registration_id == Registration.id)
+            .where(*conds)
+            .order_by(BibAssignment.bib_number)
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+
+    reg_ids = [reg.id for reg, _p, _c, _b in rows]
+    payments: dict = {}
+    if reg_ids:
+        for p in (
+            await session.execute(
+                select(Payment)
+                .where(Payment.registration_id.in_(reg_ids))
+                .order_by(Payment.created_at.desc())
+            )
+        ).scalars().all():
+            payments.setdefault(p.registration_id, p)  # erster = neuester
+
+    items = [
         {
             "id": str(reg.id),
             "first_name": part.first_name,
@@ -114,11 +148,12 @@ async def list_registrations(
             "bib_number": bib.bib_number if bib else None,
             "competition_id": str(comp.id),
             "lap_count": comp.lap_count,
-            "payment_method": pay.method if pay else None,
-            "payment_status": pay.status if pay else None,
+            "payment_method": payments[reg.id].method if reg.id in payments else None,
+            "payment_status": payments[reg.id].status if reg.id in payments else None,
         }
-        for reg, part, comp, bib, pay in rows
+        for reg, part, comp, bib in rows
     ]
+    return {"total": total, "items": items}
 
 
 async def _registration_detail(

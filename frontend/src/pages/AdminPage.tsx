@@ -120,9 +120,12 @@ function Dashboard({
   lang: string;
 }) {
   const { t } = useI18n();
+  const PAGE = 50;
   const [events, setEvents] = useState<EventDto[]>([]);
   const [eventId, setEventId] = useState("");
   const [regs, setRegs] = useState<AdminRegistration[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [q, setQ] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -137,22 +140,31 @@ function Dashboard({
   const reload = () => {
     if (!eventId) return;
     adminApi
-      .listRegistrations(eventId, q)
-      .then(setRegs)
+      .listRegistrations(eventId, q, PAGE, offset)
+      .then((res) => {
+        setRegs(res.items);
+        setTotal(res.total);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : t("common.error")));
   };
-  // Suche mit kleiner Entprellung.
+  // Nur die aktuelle Seite laden; Suche mit kleiner Entprellung.
   useEffect(() => {
     if (!eventId) return;
     const h = setTimeout(reload, 250);
     return () => clearTimeout(h);
-  }, [eventId, q]);
+  }, [eventId, q, offset]);
 
   return (
     <>
       <label>
         {t("register.event")}
-        <select value={eventId} onChange={(e) => setEventId(e.target.value)}>
+        <select
+          value={eventId}
+          onChange={(e) => {
+            setEventId(e.target.value);
+            setOffset(0);
+          }}
+        >
           {events.map((ev) => (
             <option key={ev.id} value={ev.id}>
               {ev.name} ({ev.year})
@@ -165,7 +177,10 @@ function Dashboard({
       <input
         placeholder={t("admin.search")}
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOffset(0);
+        }}
       />
       {error && <p className="error">{error}</p>}
 
@@ -200,6 +215,22 @@ function Dashboard({
           ))}
         </tbody>
       </table>
+
+      <div className="pager">
+        <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
+          {t("admin.prev")}
+        </button>
+        <span className="hint">
+          {t("admin.showing", {
+            from: total === 0 ? 0 : offset + 1,
+            to: offset + regs.length,
+            total,
+          })}
+        </span>
+        <button disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>
+          {t("admin.next")}
+        </button>
+      </div>
 
       {editingId && (
         <EditRegistration
