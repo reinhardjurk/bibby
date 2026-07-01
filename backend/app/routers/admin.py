@@ -434,15 +434,24 @@ async def mark_paid(
 @router.post("/events/{event_id}/sepa-export")
 async def sepa_export(
     event_id: uuid.UUID,
+    include_exported: bool = False,
     _user=Depends(require_roles("race_office")),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    """CSV der noch nicht exportierten, offenen SEPA-Lastschriften (Name, IBAN,
-    Betrag). Markiert die enthaltenen Zahlungen mit dem Export-Zeitpunkt, damit
-    erkennbar ist, was bereits abgerechnet wurde."""
+    """CSV der offenen SEPA-Lastschriften (Name, IBAN, Betrag). Standardmäßig nur
+    noch nicht exportierte; mit include_exported=true auch bereits exportierte.
+    Markiert die enthaltenen Zahlungen mit dem Export-Zeitpunkt."""
     event = await session.get(Event, event_id)
     if event is None:
         raise HTTPException(404, "Event nicht gefunden")
+
+    conds = [
+        Registration.event_id == event_id,
+        Payment.method == "sepa_debit",
+        Payment.status == "pending",
+    ]
+    if not include_exported:
+        conds.append(Payment.sepa_exported_at.is_(None))
 
     rows = (
         await session.execute(
@@ -450,12 +459,7 @@ async def sepa_export(
             .join(Registration, Registration.id == Payment.registration_id)
             .join(Participant, Participant.id == Registration.participant_id)
             .outerjoin(BibAssignment, BibAssignment.registration_id == Registration.id)
-            .where(
-                Registration.event_id == event_id,
-                Payment.method == "sepa_debit",
-                Payment.status == "pending",
-                Payment.sepa_exported_at.is_(None),
-            )
+            .where(*conds)
             .order_by(BibAssignment.bib_number)
         )
     ).all()

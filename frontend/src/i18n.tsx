@@ -154,6 +154,7 @@ const translations: Record<Lang, Dict> = {
     "admin.sepaExport": "SEPA-Lastschriften",
     "admin.sepaExportHint": "Exportiert alle noch nicht exportierten, offenen SEPA-Lastschriften (Name, IBAN, Betrag) als CSV und markiert sie mit dem Export-Zeitpunkt.",
     "admin.sepaExportBtn": "CSV exportieren",
+    "admin.sepaAll": "auch bereits exportierte einschließen",
   },
   en: {
     "app.title": "Bibby",
@@ -303,6 +304,7 @@ const translations: Record<Lang, Dict> = {
     "admin.sepaExport": "SEPA direct debits",
     "admin.sepaExportHint": "Exports all not-yet-exported, open SEPA debits (name, IBAN, amount) as CSV and marks them with the export timestamp.",
     "admin.sepaExportBtn": "Export CSV",
+    "admin.sepaAll": "include already exported",
   },
 };
 

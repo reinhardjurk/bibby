@@ -265,9 +265,13 @@ export const adminApi = {
 
 /** SEPA-Lastschriften als CSV (mit Auth-Header) laden – gibt Blob + Dateiname. */
 export async function downloadSepaExport(
-  eventId: string
+  eventId: string,
+  includeExported = false
 ): Promise<{ blob: Blob; filename: string }> {
-  const res = await fetch(`${BASE}/admin/events/${eventId}/sepa-export`, {
+  const url =
+    `${BASE}/admin/events/${eventId}/sepa-export` +
+    (includeExported ? "?include_exported=true" : "");
+  const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${adminToken.get()}` },
   });

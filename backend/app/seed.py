@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 
-from . import services
+from . import crypto, services
 from .config import settings
 from .db import SessionLocal
 from .passwords import hash_password
@@ -94,10 +94,13 @@ async def seed() -> None:
         carla = await participant("Carla", "Diaz", date(1992, 2, 20), "f")
         dieter = await participant("Dieter", "Egger", date(1979, 11, 3), "m")
         eva = await participant("Eva", "Fischer", date(2000, 6, 9), "f")
+        frank = await participant("Frank", "Gruber", date(1988, 5, 5), "m")
 
         manage_links: list[tuple[str, int, str]] = []
 
-        async def register(event, competition, person, bib, *, status="confirmed", team=None):
+        sepa_test_iban = "DE89370400440532013000"  # gültige Test-IBAN
+
+        async def register(event, competition, person, bib, *, status="confirmed", team=None, sepa=False):
             raw_token = generate_token()
             reg = Registration(
                 event_id=event.id,
@@ -113,15 +116,33 @@ async def seed() -> None:
             )
             s.add(reg)
             await s.flush()
-            s.add(
-                Payment(
-                    registration_id=reg.id,
-                    method="on_site",
-                    amount_cents=competition.price_cents,
-                    currency=competition.currency,
-                    status="paid",
+            amount = services.compute_price_cents(event, competition, person.birth_date)
+            if sepa:
+                name = f"{person.first_name} {person.last_name}"
+                s.add(
+                    Payment(
+                        registration_id=reg.id,
+                        method="sepa_debit",
+                        amount_cents=amount,
+                        currency=competition.currency,
+                        status="pending",
+                        iban_encrypted=crypto.encrypt(sepa_test_iban),
+                        iban_masked=crypto.mask_iban(sepa_test_iban),
+                        account_holder=name,
+                        mandate_reference=services.generate_mandate_reference(event.year),
+                        mandate_granted_at=datetime.now(timezone.utc),
+                    )
                 )
-            )
+            else:
+                s.add(
+                    Payment(
+                        registration_id=reg.id,
+                        method="on_site",
+                        amount_cents=amount,
+                        currency=competition.currency,
+                        status="paid",
+                    )
+                )
             if bib is not None:
                 s.add(BibAssignment(event_id=event.id, bib_number=bib, registration_id=reg.id))
                 manage_links.append((f"{person.first_name} {person.last_name}", bib, raw_token))
@@ -133,6 +154,8 @@ async def seed() -> None:
         await register(event2026, comp2, carla, 103)
         await register(event2026, comp3, dieter, 201)
         await register(event2026, comp1, eva, 301)
+        # Frank zahlt per SEPA-Lastschrift (für den SEPA-CSV-Export)
+        await register(event2026, comp2, frank, 104, sepa=True)
         # Anna war 2025 in einem Team -> wird 2026 auf ihrer Manage-Seite vorgeschlagen
         await register(event2025, comp2025, anna, 55, team="Laufgruppe Nord")
 
