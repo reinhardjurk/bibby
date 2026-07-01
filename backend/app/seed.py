@@ -14,6 +14,7 @@ from sqlalchemy import select
 from . import services
 from .config import settings
 from .db import SessionLocal
+from .passwords import hash_password
 from .models import (
     AppUser,
     BibAssignment,
@@ -61,7 +62,11 @@ async def seed() -> None:
         s.add_all([comp1, comp2, comp3, comp2025])
 
         # --- Admin-Benutzer (für die Admin-Oberfläche) ---
-        admin = AppUser(email="admin@example.com", name="Demo Admin")
+        admin = AppUser(
+            email="admin@example.com",
+            name="Demo Admin",
+            password_hash=hash_password("admin"),
+        )
         s.add(admin)
         await s.flush()
         s.add(UserRole(user_id=admin.id, role="admin"))
@@ -159,8 +164,8 @@ async def seed() -> None:
         print("seed: Verwaltungslinks (Startnummer-PDF testbar):")
         for name, bib, raw in manage_links:
             print(f"  #{bib} {name}: {settings.public_base_url}/manage?token={raw}")
-        print(f"seed: Admin-Login -> {settings.public_base_url}/admin, E-Mail: admin@example.com")
-        print("      (Magic-Link erscheint nach dem Login als [login-link] in diesen Logs)")
+        print(f"seed: Admin-Login -> {settings.public_base_url}/admin")
+        print("      E-Mail: admin@example.com   Passwort: admin")
 
 
 if __name__ == "__main__":

@@ -154,11 +154,12 @@ CREATE INDEX idx_timing_lookup ON timing_record(event_id, bib_number, absolute_t
 -- Organisatoren (Admin-SPA) — RBAC
 -- =========================================================================
 CREATE TABLE app_user (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email       TEXT NOT NULL UNIQUE,
-    name        TEXT,
-    active      BOOLEAN NOT NULL DEFAULT true,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email         TEXT NOT NULL UNIQUE,
+    name          TEXT,
+    password_hash TEXT,            -- bcrypt; NULL = (noch) kein Passwort gesetzt
+    active        BOOLEAN NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE user_role (

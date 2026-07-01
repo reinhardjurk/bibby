@@ -137,8 +137,11 @@ export type DeviceTokenDto = {
 };
 
 export const adminApi = {
-  login: (email: string) =>
-    req<{ ok: boolean }>("/admin/auth/login", { method: "POST", body: JSON.stringify({ email }) }),
+  login: (email: string, password: string) =>
+    req<SessionInfo>("/admin/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
   me: () => adminReq<SessionInfo>("/admin/me"),
   listRegistrations: (eventId: string) =>
     adminReq<AdminRegistration[]>(`/admin/registrations?event_id=${eventId}`),

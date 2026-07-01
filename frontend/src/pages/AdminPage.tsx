@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   adminApi,
   adminToken,
@@ -15,19 +14,11 @@ import { useI18n } from "../i18n";
 
 export function AdminPage() {
   const { t, lang } = useI18n();
-  const [params] = useSearchParams();
-  const navigate = useNavigate();
-
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
 
-  // Token aus dem Magic-Link übernehmen, dann Session prüfen.
+  // Bestehende Session (gespeicherter Token) prüfen.
   useEffect(() => {
-    const urlToken = params.get("token");
-    if (urlToken) {
-      adminToken.set(urlToken);
-      navigate("/admin", { replace: true });
-    }
     if (adminToken.get()) {
       adminApi
         .me()
@@ -44,8 +35,13 @@ export function AdminPage() {
     }
   }, []);
 
+  const onAuthed = (r: string[]) => {
+    setRoles(r);
+    setAuthed(true);
+  };
+
   if (authed === null) return <div className="card">{t("common.loading")}</div>;
-  if (!authed) return <LoginCard />;
+  if (!authed) return <LoginCard onAuthed={onAuthed} />;
 
   const has = (role: string) => roles.includes("admin") || roles.includes(role);
 
@@ -70,20 +66,21 @@ export function AdminPage() {
   );
 }
 
-function LoginCard() {
+function LoginCard({ onAuthed }: { onAuthed: (roles: string[]) => void }) {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     try {
-      await adminApi.login(email);
-      setSent(true);
+      const s = await adminApi.login(email, password);
+      adminToken.set(s.token);
+      onAuthed(s.roles);
     } catch {
-      setError(t("common.error"));
+      setError(t("admin.loginFailed"));
     }
   };
 
@@ -91,19 +88,22 @@ function LoginCard() {
     <form className="card" onSubmit={submit}>
       <h2>{t("admin.login")}</h2>
       {error && <p className="error">{error}</p>}
-      {sent ? (
-        <p className="success">{t("admin.loginSent")}</p>
-      ) : (
-        <>
-          <label>
-            {t("register.email")}
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </label>
-          <button className="primary" type="submit">
-            {t("admin.login")}
-          </button>
-        </>
-      )}
+      <label>
+        {t("register.email")}
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      </label>
+      <label>
+        {t("admin.password")}
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </label>
+      <button className="primary" type="submit">
+        {t("admin.login")}
+      </button>
     </form>
   );
 }

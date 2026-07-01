@@ -123,6 +123,7 @@ class ResultList(BaseModel):
 # --- Admin / RBAC ---------------------------------------------------------
 class LoginRequest(BaseModel):
     email: EmailStr
+    password: str
 
 
 class SessionToken(BaseModel):

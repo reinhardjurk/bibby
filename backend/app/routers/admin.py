@@ -10,7 +10,6 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import services
-from ..config import settings
 from ..db import get_session
 from ..models import (
     AppUser,
@@ -32,6 +31,7 @@ from ..schemas import (
     ResultList,
     SessionToken,
 )
+from ..passwords import verify_password
 from ..security import generate_token, hash_token, require_roles, user_roles
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -39,29 +39,27 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 SESSION_TTL = timedelta(hours=12)
 
 
-@router.post("/auth/login")
-async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)) -> dict:
-    """Stößt einen Magic-Link-Login an. Der Link enthält den Session-Token.
-
-    (Härtung später: getrennter Einmal-Token + Austausch gegen Session.)
-    """
+@router.post("/auth/login", response_model=SessionToken)
+async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)) -> SessionToken:
+    """Passwortbasierter Login. Bei Erfolg wird ein Session-Token ausgegeben."""
     user = (
         await session.execute(select(AppUser).where(AppUser.email == body.email))
     ).scalar_one_or_none()
-    # Kein User-Enumeration-Leak: immer 200.
-    if user and user.active:
-        raw = generate_token()
-        session.add(
-            AuthToken(
-                user_id=user.id,
-                token_hash=hash_token(raw),
-                expires_at=datetime.now(timezone.utc) + SESSION_TTL,
-            )
-        )
-        await session.commit()
-        # TODO: per TEM verschicken statt loggen.
-        print(f"[login-link] {body.email}: {settings.public_base_url}/admin?token={raw}")
-    return {"ok": True}
+    # Generische Fehlermeldung, kein User-Enumeration-Leak.
+    if (
+        user is None
+        or not user.active
+        or user.password_hash is None
+        or not verify_password(body.password, user.password_hash)
+    ):
+        raise HTTPException(401, "E-Mail oder Passwort falsch")
+
+    expires_at = datetime.now(timezone.utc) + SESSION_TTL
+    raw = generate_token()
+    session.add(AuthToken(user_id=user.id, token_hash=hash_token(raw), expires_at=expires_at))
+    await session.commit()
+    roles = await user_roles(session, user.id)
+    return SessionToken(token=raw, expires_at=expires_at, roles=sorted(roles))
 
 
 @router.get("/me", response_model=SessionToken)

@@ -217,6 +217,7 @@ class AppUser(Base):
     id: Mapped[uuid.UUID] = _pk()
     email: Mapped[str] = mapped_column(String, unique=True)
     name: Mapped[str | None]
+    password_hash: Mapped[str | None] = mapped_column(String)  # bcrypt
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

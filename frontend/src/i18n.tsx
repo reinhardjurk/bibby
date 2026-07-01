@@ -14,7 +14,8 @@ const translations: Record<Lang, Dict> = {
 
     "admin.title": "Verwaltung",
     "admin.login": "Anmelden",
-    "admin.loginSent": "Falls ein Konto existiert, wurde ein Login-Link verschickt (lokal: in den Server-Logs als [login-link]).",
+    "admin.password": "Passwort",
+    "admin.loginFailed": "E-Mail oder Passwort falsch.",
     "admin.logout": "Abmelden",
     "admin.registrations": "Anmeldungen",
     "admin.bib": "Nr.",
@@ -99,7 +100,8 @@ const translations: Record<Lang, Dict> = {
 
     "admin.title": "Administration",
     "admin.login": "Sign in",
-    "admin.loginSent": "If an account exists, a login link was sent (locally: in the server logs as [login-link]).",
+    "admin.password": "Password",
+    "admin.loginFailed": "Wrong email or password.",
     "admin.logout": "Sign out",
     "admin.registrations": "Registrations",
     "admin.bib": "No.",
