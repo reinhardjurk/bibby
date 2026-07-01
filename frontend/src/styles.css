@@ -113,6 +113,7 @@ table.results tr.dnf { color: var(--muted); }
 }
 
 .admin-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.edit-panel { border: 2px solid var(--accent); margin-top: 10px; }
 .bib-edit { cursor: pointer; white-space: nowrap; }
 .card h3 { margin: 18px 0 6px; }
 .card button:not(.primary) {

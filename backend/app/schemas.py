@@ -152,3 +152,45 @@ class DeviceTokenOut(BaseModel):
     token: str | None = None  # Klartext nur bei Erstellung
     time_offset_seconds: int
     active: bool
+
+
+class AdminRegistrationDetail(BaseModel):
+    """Vollständige Anmeldedaten für die Admin-Bearbeitung."""
+
+    id: uuid.UUID
+    first_name: str
+    last_name: str
+    birth_date: date
+    gender: str
+    email: EmailStr
+    language: str
+    team: str | None
+    consent_data: bool
+    consent_publish: bool
+    status: str
+    bib_number: int | None
+    event_id: uuid.UUID
+    competition_id: uuid.UUID
+    lap_count: int
+    payment_method: str | None
+    payment_status: str | None
+    payment_iban_masked: str | None
+
+
+class AdminRegistrationUpdate(BaseModel):
+    """Admin darf alle Felder korrigieren. None = unverändert."""
+
+    first_name: str | None = None
+    last_name: str | None = None
+    birth_date: date | None = None
+    gender: str | None = None
+    email: EmailStr | None = None
+    language: str | None = None
+    team: str | None = None
+    consent_data: bool | None = None
+    consent_publish: bool | None = None
+    status: str | None = None
+    bib_number: int | None = None
+    competition_id: uuid.UUID | None = None
+    payment_method: str | None = None
+    payment_status: str | None = None

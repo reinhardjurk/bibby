@@ -5,11 +5,14 @@ import {
   api,
   formatTime,
   type AdminRegistration,
+  type AdminRegistrationDetail,
+  type AdminRegistrationUpdate,
   type CompetitionDto,
   type DeviceTokenDto,
   type EventDto,
   type ResultList,
 } from "../api";
+import { TeamInput } from "../components/TeamInput";
 import { useI18n } from "../i18n";
 
 export function AdminPage() {
@@ -17,7 +20,6 @@ export function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
 
-  // Bestehende Session (gespeicherter Token) prüfen.
   useEffect(() => {
     if (adminToken.get()) {
       adminApi
@@ -120,8 +122,9 @@ function Dashboard({
   const { t } = useI18n();
   const [events, setEvents] = useState<EventDto[]>([]);
   const [eventId, setEventId] = useState("");
-  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [regs, setRegs] = useState<AdminRegistration[]>([]);
+  const [q, setQ] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -133,25 +136,17 @@ function Dashboard({
 
   const reload = () => {
     if (!eventId) return;
-    api.listCompetitions(eventId).then(setCompetitions);
     adminApi
-      .listRegistrations(eventId)
+      .listRegistrations(eventId, q)
       .then(setRegs)
       .catch((e) => setError(e instanceof Error ? e.message : t("common.error")));
   };
-  useEffect(reload, [eventId]);
-
-  const compLabel = (c: CompetitionDto) => c.title_i18n?.[lang] || t("register.laps", { n: c.lap_count });
-
-  const act = async (fn: () => Promise<unknown>) => {
-    setError("");
-    try {
-      await fn();
-      reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("common.error"));
-    }
-  };
+  // Suche mit kleiner Entprellung.
+  useEffect(() => {
+    if (!eventId) return;
+    const h = setTimeout(reload, 250);
+    return () => clearTimeout(h);
+  }, [eventId, q]);
 
   return (
     <>
@@ -166,9 +161,14 @@ function Dashboard({
         </select>
       </label>
 
+      <h3>{t("admin.registrations")}</h3>
+      <input
+        placeholder={t("admin.search")}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
       {error && <p className="error">{error}</p>}
 
-      <h3>{t("admin.registrations")}</h3>
       <table className="results">
         <thead>
           <tr>
@@ -176,50 +176,24 @@ function Dashboard({
             <th>{t("admin.name")}</th>
             <th>{t("admin.competition")}</th>
             <th>{t("admin.payment")}</th>
-            <th>{t("admin.actions")}</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {regs.map((r) => (
             <tr key={r.id}>
-              <td>
-                {canManage ? (
-                  <BibEditor
-                    value={r.bib_number}
-                    onSet={(n) => act(() => adminApi.assignBib(r.id, n))}
-                  />
-                ) : (
-                  (r.bib_number ?? "–")
-                )}
-              </td>
+              <td>{r.bib_number ?? "–"}</td>
               <td>
                 {r.first_name} {r.last_name}
               </td>
-              <td>
-                {canManage ? (
-                  <select
-                    value={r.competition_id}
-                    onChange={(e) => act(() => adminApi.reassign(r.id, e.target.value))}
-                  >
-                    {competitions.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {compLabel(c)}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  t("register.laps", { n: r.lap_count })
-                )}
-              </td>
+              <td>{t("register.laps", { n: r.lap_count })}</td>
               <td>
                 {r.payment_method ? t(`pay.method.${r.payment_method}`) : "–"} ·{" "}
                 {r.payment_status ? t(`pay.status.${r.payment_status}`) : "–"}
               </td>
               <td>
-                {canManage && r.payment_status !== "paid" && (
-                  <button onClick={() => act(() => adminApi.markPaid(r.id))}>
-                    {t("admin.markPaid")}
-                  </button>
+                {canManage && (
+                  <button onClick={() => setEditingId(r.id)}>{t("admin.edit")}</button>
                 )}
               </td>
             </tr>
@@ -227,31 +201,245 @@ function Dashboard({
         </tbody>
       </table>
 
-      {eventId && (
-        <InternalResults eventId={eventId} competitions={competitions} lang={lang} />
+      {editingId && (
+        <EditRegistration
+          id={editingId}
+          lang={lang}
+          onClose={() => setEditingId(null)}
+          onSaved={() => {
+            setEditingId(null);
+            reload();
+          }}
+        />
       )}
 
+      {eventId && <InternalResults eventId={eventId} lang={lang} />}
       {canTiming && eventId && <DeviceTokens eventId={eventId} />}
     </>
   );
 }
 
-function InternalResults({
-  eventId,
-  competitions,
+type EditForm = {
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  gender: string;
+  email: string;
+  language: string;
+  team: string;
+  consent_data: boolean;
+  consent_publish: boolean;
+  status: string;
+  bib_number: string;
+  competition_id: string;
+  payment_method: string;
+  payment_status: string;
+};
+
+function EditRegistration({
+  id,
   lang,
+  onClose,
+  onSaved,
 }: {
-  eventId: string;
-  competitions: CompetitionDto[];
+  id: string;
   lang: string;
+  onClose: () => void;
+  onSaved: () => void;
 }) {
   const { t } = useI18n();
+  const [detail, setDetail] = useState<AdminRegistrationDetail | null>(null);
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
+  const [form, setForm] = useState<EditForm | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    adminApi
+      .getRegistration(id)
+      .then((d) => {
+        setDetail(d);
+        setForm({
+          first_name: d.first_name,
+          last_name: d.last_name,
+          birth_date: d.birth_date,
+          gender: d.gender,
+          email: d.email,
+          language: d.language,
+          team: d.team ?? "",
+          consent_data: d.consent_data,
+          consent_publish: d.consent_publish,
+          status: d.status,
+          bib_number: d.bib_number != null ? String(d.bib_number) : "",
+          competition_id: d.competition_id,
+          payment_method: d.payment_method ?? "",
+          payment_status: d.payment_status ?? "",
+        });
+        return api.listCompetitions(d.event_id);
+      })
+      .then((c) => c && setCompetitions(c))
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.error")));
+  }, [id]);
+
+  if (!detail || !form) return <div className="card">{t("common.loading")}</div>;
+
+  const set = (patch: Partial<EditForm>) => setForm({ ...form, ...patch });
+  const compLabel = (c: CompetitionDto) =>
+    c.title_i18n?.[lang] || t("register.laps", { n: c.lap_count });
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    const body: AdminRegistrationUpdate = {
+      first_name: form.first_name,
+      last_name: form.last_name,
+      birth_date: form.birth_date,
+      gender: form.gender,
+      email: form.email,
+      language: form.language,
+      team: form.team,
+      consent_data: form.consent_data,
+      consent_publish: form.consent_publish,
+      status: form.status,
+      competition_id: form.competition_id,
+      bib_number: form.bib_number === "" ? undefined : Number(form.bib_number),
+      payment_method: form.payment_method || undefined,
+      payment_status: form.payment_status || undefined,
+    };
+    try {
+      await adminApi.updateRegistration(id, body);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common.error"));
+    }
+  };
+
+  return (
+    <form className="card edit-panel" onSubmit={save}>
+      <div className="admin-head">
+        <h3>{t("admin.editTitle")}</h3>
+        <button type="button" onClick={onClose}>
+          {t("admin.cancel")}
+        </button>
+      </div>
+      {error && <p className="error">{error}</p>}
+
+      <div className="row">
+        <label>
+          {t("register.firstName")}
+          <input value={form.first_name} onChange={(e) => set({ first_name: e.target.value })} required />
+        </label>
+        <label>
+          {t("register.lastName")}
+          <input value={form.last_name} onChange={(e) => set({ last_name: e.target.value })} required />
+        </label>
+      </div>
+
+      <div className="row">
+        <label>
+          {t("register.birthDate")}
+          <input type="date" value={form.birth_date} onChange={(e) => set({ birth_date: e.target.value })} required />
+        </label>
+        <label>
+          {t("register.gender")}
+          <select value={form.gender} onChange={(e) => set({ gender: e.target.value })}>
+            <option value="f">{t("register.gender.f")}</option>
+            <option value="m">{t("register.gender.m")}</option>
+            <option value="x">{t("register.gender.x")}</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        {t("register.email")}
+        <input type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} required />
+      </label>
+
+      <div className="row">
+        <label>
+          {t("admin.language")}
+          <select value={form.language} onChange={(e) => set({ language: e.target.value })}>
+            <option value="de">DE</option>
+            <option value="en">EN</option>
+          </select>
+        </label>
+        <label>
+          {t("register.team")}
+          <TeamInput value={form.team} onChange={(v) => set({ team: v })} />
+        </label>
+      </div>
+
+      <div className="row">
+        <label>
+          {t("register.competition")}
+          <select value={form.competition_id} onChange={(e) => set({ competition_id: e.target.value })}>
+            {competitions.map((c) => (
+              <option key={c.id} value={c.id}>{compLabel(c)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("admin.bib")}
+          <input
+            type="number"
+            value={form.bib_number}
+            onChange={(e) => set({ bib_number: e.target.value })}
+          />
+        </label>
+      </div>
+
+      <div className="row">
+        <label>
+          {t("admin.status")}
+          <select value={form.status} onChange={(e) => set({ status: e.target.value })}>
+            <option value="confirmed">{t("regstatus.confirmed")}</option>
+            <option value="cancelled">{t("regstatus.cancelled")}</option>
+          </select>
+        </label>
+        <label>
+          {t("admin.paymentMethod")}
+          <select value={form.payment_method} onChange={(e) => set({ payment_method: e.target.value })}>
+            <option value="on_site">{t("pay.method.on_site")}</option>
+            <option value="sepa_debit">{t("pay.method.sepa_debit")}</option>
+          </select>
+        </label>
+        <label>
+          {t("admin.paymentStatus")}
+          <select value={form.payment_status} onChange={(e) => set({ payment_status: e.target.value })}>
+            <option value="pending">{t("pay.status.pending")}</option>
+            <option value="paid">{t("pay.status.paid")}</option>
+            <option value="cancelled">{t("pay.status.cancelled")}</option>
+          </select>
+        </label>
+      </div>
+
+      {detail.payment_iban_masked && (
+        <p className="hint">{t("manage.iban")}: {detail.payment_iban_masked}</p>
+      )}
+
+      <label className="check">
+        <input type="checkbox" checked={form.consent_data} onChange={(e) => set({ consent_data: e.target.checked })} />
+        {t("register.consentData")}
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={form.consent_publish} onChange={(e) => set({ consent_publish: e.target.checked })} />
+        {t("register.consentPublish")}
+      </label>
+
+      <button className="primary" type="submit">{t("manage.save")}</button>
+    </form>
+  );
+}
+
+function InternalResults({ eventId, lang }: { eventId: string; lang: string }) {
+  const { t } = useI18n();
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [competitionId, setCompetitionId] = useState("");
   const [data, setData] = useState<ResultList | null>(null);
 
   useEffect(() => {
     setCompetitionId("");
     setData(null);
+    api.listCompetitions(eventId).then(setCompetitions);
   }, [eventId]);
 
   useEffect(() => {
@@ -268,9 +456,7 @@ function InternalResults({
       <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
         <option value="">{t("common.choose")}</option>
         {competitions.map((c) => (
-          <option key={c.id} value={c.id}>
-            {compLabel(c)}
-          </option>
+          <option key={c.id} value={c.id}>{compLabel(c)}</option>
         ))}
       </select>
       {data && data.rows.length > 0 && (
@@ -302,35 +488,6 @@ function InternalResults({
         </table>
       )}
     </>
-  );
-}
-
-function BibEditor({ value, onSet }: { value: number | null; onSet: (n: number) => void }) {
-  const [edit, setEdit] = useState(false);
-  const [n, setN] = useState(value ?? 0);
-  if (!edit)
-    return (
-      <span onClick={() => setEdit(true)} className="bib-edit" title="bearbeiten">
-        {value ?? "–"} ✎
-      </span>
-    );
-  return (
-    <span>
-      <input
-        type="number"
-        style={{ width: 70 }}
-        value={n}
-        onChange={(e) => setN(Number(e.target.value))}
-      />
-      <button
-        onClick={() => {
-          onSet(n);
-          setEdit(false);
-        }}
-      >
-        OK
-      </button>
-    </span>
   );
 }
 

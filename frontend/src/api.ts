@@ -136,6 +136,44 @@ export type DeviceTokenDto = {
   active: boolean;
 };
 
+export type AdminRegistrationDetail = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  gender: string;
+  email: string;
+  language: string;
+  team: string | null;
+  consent_data: boolean;
+  consent_publish: boolean;
+  status: string;
+  bib_number: number | null;
+  event_id: string;
+  competition_id: string;
+  lap_count: number;
+  payment_method: string | null;
+  payment_status: string | null;
+  payment_iban_masked: string | null;
+};
+
+export type AdminRegistrationUpdate = Partial<{
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  gender: string;
+  email: string;
+  language: string;
+  team: string | null;
+  consent_data: boolean;
+  consent_publish: boolean;
+  status: string;
+  bib_number: number | null;
+  competition_id: string;
+  payment_method: string | null;
+  payment_status: string | null;
+}>;
+
 export const adminApi = {
   login: (email: string, password: string) =>
     req<SessionInfo>("/admin/auth/login", {
@@ -143,8 +181,17 @@ export const adminApi = {
       body: JSON.stringify({ email, password }),
     }),
   me: () => adminReq<SessionInfo>("/admin/me"),
-  listRegistrations: (eventId: string) =>
-    adminReq<AdminRegistration[]>(`/admin/registrations?event_id=${eventId}`),
+  listRegistrations: (eventId: string, q = "") =>
+    adminReq<AdminRegistration[]>(
+      `/admin/registrations?event_id=${eventId}${q ? `&q=${encodeURIComponent(q)}` : ""}`
+    ),
+  getRegistration: (id: string) =>
+    adminReq<AdminRegistrationDetail>(`/admin/registrations/${id}`),
+  updateRegistration: (id: string, body: AdminRegistrationUpdate) =>
+    adminReq<AdminRegistrationDetail>(`/admin/registrations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   reassign: (regId: string, competitionId: string) =>
     adminReq(`/admin/registrations/${regId}/reassign`, {
       method: "POST",
