@@ -43,10 +43,28 @@ Der eigentliche Lastschrifteinzug läuft offline (Banking/SEPA-XML). Das
 Race-Office markiert Zahlungen über `POST /admin/registrations/{id}/payment/mark-paid`
 als bezahlt.
 
+## E-Mail (Scaleway TEM)
+
+Versand über `app/mailer.py` (`send_email`). Konfiguration per Env:
+
+| Variable | Zweck |
+|---|---|
+| `BIBBY_TEM_API_KEY` | Scaleway API-Secret-Key mit TEM-Rechten (leer = nur loggen) |
+| `BIBBY_TEM_PROJECT_ID` | Scaleway Project ID |
+| `BIBBY_SCW_REGION` | Region (z. B. `fr-par`) |
+| `BIBBY_TEM_FROM_EMAIL` | Absender – Domäne muss in TEM verifiziert sein |
+| `BIBBY_TEM_FROM_NAME` | Anzeigename des Absenders |
+| `BIBBY_MAIL_TEST_MODE` | `true` = ALLE Mails an `BIBBY_MAIL_TEST_RECIPIENT` |
+| `BIBBY_MAIL_TEST_RECIPIENT` | Empfänger im Test-Modus |
+
+- **Test-Modus** (Standard `true`): jede Mail geht an die feste Test-Adresse;
+  der eigentliche Empfänger steht im Betreff (`[TEST → …]`). Vor dem Echtbetrieb
+  auf `false` setzen.
+- Ohne `TEM_API_KEY` wird die Mail nur geloggt (lokale Entwicklung).
+- Mailfehler lassen die Anmeldung nicht scheitern (werden nur geloggt).
+
 ## Noch offen (Stubs / nächste Schritte)
 
-- **TEM**: Mailversand statt `print` (`services.send_confirmation_email`,
-  `routers/admin.py` Login-Link).
 - **SEPA-XML-Export** (pain.008) der offenen Lastschriften fürs Banking.
 - **Async-Entkopplung**: Mail/PDF über Scaleway Queue + Functions.
 - **Login-Härtung**: getrennter Einmal-Token, der gegen eine Session getauscht wird.

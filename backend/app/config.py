@@ -25,9 +25,17 @@ class Settings(BaseSettings):
     sepa_creditor_name: str = "Bibby Lauf e.V."
     sepa_creditor_id: str = "DE00ZZZ00000000000"
 
-    # Scaleway Transactional Email
-    tem_api_key: str = ""
-    tem_from_email: str = "no-reply@bibby.example"
+    # Scaleway Transactional Email (TEM)
+    tem_api_key: str = ""                       # Scaleway API-Secret-Key mit TEM-Rechten
+    tem_project_id: str = ""                    # Scaleway Project ID (für den API-Call)
+    scw_region: str = "fr-par"
+    tem_from_email: str = "no-reply@bibby.example"  # Absender – Domäne muss in TEM verifiziert sein
+    tem_from_name: str = "Bibby"
+
+    # Test-Modus: leitet ALLE ausgehenden Mails an eine feste Adresse um.
+    # Standardmäßig an, damit lokal/Test niemals echte Teilnehmer angemailt werden.
+    mail_test_mode: bool = True
+    mail_test_recipient: str = ""
 
     default_currency: str = "EUR"
     # Startnummer wird bei der Anmeldung fortlaufend vergeben; erste Nummer:

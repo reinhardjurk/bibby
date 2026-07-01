@@ -69,6 +69,24 @@ variable "tem_domain" {
   type        = string
 }
 
+variable "tem_from_name" {
+  description = "Anzeigename des Absenders"
+  type        = string
+  default     = "Bibby"
+}
+
+variable "mail_test_mode" {
+  description = "Test-Modus: leitet ALLE Mails an mail_test_recipient um"
+  type        = bool
+  default     = true
+}
+
+variable "mail_test_recipient" {
+  description = "Empfänger im Test-Modus"
+  type        = string
+  default     = ""
+}
+
 variable "cors_origins" {
   description = "Erlaubte Origins der SPA"
   type        = list(string)

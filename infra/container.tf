@@ -40,11 +40,17 @@ resource "scaleway_container" "api" {
   deploy         = true
 
   environment_variables = {
-    BIBBY_PUBLIC_BASE_URL  = var.public_base_url
-    BIBBY_TEM_FROM_EMAIL   = "no-reply@${var.tem_domain}"
-    BIBBY_CORS_ORIGINS     = jsonencode(var.cors_origins)
+    BIBBY_PUBLIC_BASE_URL    = var.public_base_url
+    BIBBY_CORS_ORIGINS       = jsonencode(var.cors_origins)
     BIBBY_SEPA_CREDITOR_NAME = var.sepa_creditor_name
     BIBBY_SEPA_CREDITOR_ID   = var.sepa_creditor_id
+    # E-Mail (TEM)
+    BIBBY_TEM_FROM_EMAIL      = "no-reply@${var.tem_domain}"
+    BIBBY_TEM_FROM_NAME       = var.tem_from_name
+    BIBBY_TEM_PROJECT_ID      = var.project_id
+    BIBBY_SCW_REGION          = var.region
+    BIBBY_MAIL_TEST_MODE      = tostring(var.mail_test_mode)
+    BIBBY_MAIL_TEST_RECIPIENT = var.mail_test_recipient
   }
 
   secret_environment_variables = {

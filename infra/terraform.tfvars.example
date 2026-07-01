@@ -6,7 +6,13 @@ bucket_suffix   = "prod-7f3a"   # beliebig, aber global eindeutig
 
 public_base_url = "https://anmeldung.bibby.example"
 tem_domain      = "mail.bibby.example"
+tem_from_name   = "Bibby"
 cors_origins    = ["https://anmeldung.bibby.example"]
+
+# E-Mail Test-Modus: true = ALLE Mails gehen an mail_test_recipient.
+# Vor dem Echtbetrieb auf false setzen.
+mail_test_mode      = true
+mail_test_recipient = "test@bibby.example"
 
 sepa_creditor_name = "Bibby Lauf e.V."
 sepa_creditor_id   = "DE00ZZZ00000000000"

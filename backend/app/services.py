@@ -13,6 +13,7 @@ from datetime import date, datetime
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from . import mailer
 from .config import settings
 from .models import (
     BibAssignment,
@@ -345,9 +346,29 @@ def generate_mandate_reference(year: int) -> str:
 
 
 async def send_confirmation_email(registration: Registration, manage_token: str) -> None:
-    """STUB: verschickt Bestätigungsmail mit Verwaltungslink über Scaleway TEM."""
+    """Bestätigungsmail mit Verwaltungslink (über Scaleway TEM / mailer).
+
+    Fehler beim Mailversand dürfen die Anmeldung nicht scheitern lassen –
+    daher wird eine Ausnahme nur geloggt.
+    """
     link = f"{settings.public_base_url}/manage?token={manage_token}"
-    print(f"[TEM stub] -> {registration.email} ({registration.language}): {link}")
+    if registration.language == "en":
+        subject = "Your Bibby registration"
+        text = (
+            "Thank you for registering!\n\n"
+            f"Manage or correct your registration anytime here:\n{link}\n"
+        )
+    else:
+        subject = "Deine Bibby-Anmeldung"
+        text = (
+            "Danke für deine Anmeldung!\n\n"
+            f"Deine Anmeldung kannst du hier jederzeit verwalten oder korrigieren:\n{link}\n"
+        )
+
+    try:
+        await mailer.send_email(to=registration.email, subject=subject, text=text)
+    except Exception as exc:  # noqa: BLE001 – Mailversand darf nicht blockieren
+        print(f"[email] Versand an {registration.email} fehlgeschlagen: {exc}")
 
 
 # =========================================================================

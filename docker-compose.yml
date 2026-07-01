@@ -22,6 +22,15 @@ services:
       BIBBY_SECRET_KEY: dev-secret
       BIBBY_PUBLIC_BASE_URL: http://localhost:5173
       BIBBY_CORS_ORIGINS: '["http://localhost:5173"]'
+      # E-Mail (TEM). Werte aus der Shell/.env; leere Defaults = nur loggen.
+      # Test-Modus AN lassen, solange nicht bewusst echt versendet werden soll.
+      BIBBY_MAIL_TEST_MODE: "${BIBBY_MAIL_TEST_MODE:-true}"
+      BIBBY_MAIL_TEST_RECIPIENT: "${BIBBY_MAIL_TEST_RECIPIENT:-}"
+      BIBBY_TEM_API_KEY: "${BIBBY_TEM_API_KEY:-}"
+      BIBBY_TEM_PROJECT_ID: "${BIBBY_TEM_PROJECT_ID:-}"
+      BIBBY_SCW_REGION: "${BIBBY_SCW_REGION:-fr-par}"
+      BIBBY_TEM_FROM_EMAIL: "${BIBBY_TEM_FROM_EMAIL:-no-reply@bibby.example}"
+      BIBBY_TEM_FROM_NAME: "${BIBBY_TEM_FROM_NAME:-Bibby}"
     depends_on:
       db:
         condition: service_healthy
