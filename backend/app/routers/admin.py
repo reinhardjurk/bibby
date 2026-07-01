@@ -33,6 +33,7 @@ from ..schemas import (
     BibReassign,
     CompetitionUpdate,
     DeviceTokenCreate,
+    EventCreate,
     EventUpdate,
     DeviceTokenOut,
     LoginRequest,
@@ -535,6 +536,72 @@ async def update_competition(
         "price_junior_cents": comp.price_junior_cents,
         "currency": comp.currency,
     }
+
+
+# --- Neues Event anlegen --------------------------------------------------
+@router.post("/events", status_code=201)
+async def create_event(
+    body: EventCreate,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Legt ein komplett neues Event mit Strecken an. Bestehende Events und deren
+    Daten bleiben unberührt (jahresübergreifende Historie)."""
+    if not body.competitions:
+        raise HTTPException(422, "Mindestens eine Strecke erforderlich")
+    laps = [c.lap_count for c in body.competitions]
+    if len(set(laps)) != len(laps):
+        raise HTTPException(422, "Rundenzahl je Strecke muss eindeutig sein")
+
+    event = Event(
+        name=body.name,
+        year=body.year,
+        event_date=body.event_date,
+        registration_deadline=body.registration_deadline,
+        default_start_time=body.default_start_time,
+        junior_cutoff_date=body.junior_cutoff_date,
+        tshirt_included=body.tshirt_included,
+        tshirt_options=body.tshirt_options or None,
+    )
+    session.add(event)
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(409, "Für dieses Jahr existiert bereits ein Event")
+
+    for c in body.competitions:
+        title_i18n = {"de": c.title, "en": c.title} if c.title else None
+        session.add(
+            Competition(
+                event_id=event.id,
+                lap_count=c.lap_count,
+                title_i18n=title_i18n,
+                start_time=c.start_time,
+                price_cents=c.price_cents,
+                price_junior_cents=c.price_junior_cents,
+                currency=c.currency,
+            )
+        )
+    await session.commit()
+    return {"id": str(event.id), "year": event.year, "name": event.name}
+
+
+@router.delete("/events/{event_id}")
+async def delete_event(
+    event_id: uuid.UUID,
+    _user=Depends(require_roles("admin")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Löscht ein Event samt allen abhängigen Daten (Anmeldungen, Zahlungen,
+    Startnummern, Zeiterfassungen, Strecken, Geräte-Tokens) über DB-Kaskaden.
+    Teilnehmer-Identitäten bleiben erhalten. Nur für die Rolle `admin`."""
+    event = await session.get(Event, event_id)
+    if event is None:
+        raise HTTPException(404, "Event nicht gefunden")
+    await session.execute(delete(Event).where(Event.id == event_id))
+    await session.commit()
+    return {"ok": True}
 
 
 # --- Event-Einstellungen (T-Shirt-Optionen) -------------------------------

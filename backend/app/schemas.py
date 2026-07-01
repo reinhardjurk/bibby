@@ -159,6 +159,27 @@ class EventUpdate(BaseModel):
     tshirt_included: bool | None = None
 
 
+class CompetitionCreate(BaseModel):
+    lap_count: int
+    title: str | None = None                  # Anzeigename (optional)
+    price_cents: int = 0
+    price_junior_cents: int | None = None
+    currency: str = "EUR"
+    start_time: datetime | None = None
+
+
+class EventCreate(BaseModel):
+    name: str
+    year: int
+    event_date: date
+    registration_deadline: datetime | None = None
+    default_start_time: datetime | None = None
+    junior_cutoff_date: date | None = None
+    tshirt_included: bool = False
+    tshirt_options: list[str] | None = None
+    competitions: list[CompetitionCreate]
+
+
 class DeviceTokenCreate(BaseModel):
     label: str
     time_offset_seconds: int = 0

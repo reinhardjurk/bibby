@@ -156,6 +156,24 @@ export type TimingRow = {
   status: string;
 };
 
+export type EventCreatePayload = {
+  name: string;
+  year: number;
+  event_date: string;
+  registration_deadline?: string | null;
+  default_start_time?: string | null;
+  junior_cutoff_date?: string | null;
+  tshirt_included: boolean;
+  tshirt_options?: string[] | null;
+  competitions: {
+    lap_count: number;
+    title?: string | null;
+    price_cents: number;
+    price_junior_cents?: number | null;
+    start_time?: string | null;
+  }[];
+};
+
 export type AdminRegistrationDetail = {
   id: string;
   first_name: string;
@@ -252,6 +270,12 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  createEvent: (body: EventCreatePayload) =>
+    adminReq<{ id: string; year: number; name: string }>("/admin/events", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  deleteEvent: (id: string) => adminReq(`/admin/events/${id}`, { method: "DELETE" }),
   recomputeTimes: (eventId: string) =>
     adminReq<{ updated: number }>(`/admin/events/${eventId}/recompute-times`, { method: "POST" }),
   listTimings: (eventId: string, bib: number) =>
