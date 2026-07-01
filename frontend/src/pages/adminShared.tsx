@@ -9,6 +9,7 @@ import {
   type AdminRegistrationUpdate,
   type CompetitionDto,
   type DeviceTokenDto,
+  type EventDto,
   type ResultList,
 } from "../api";
 import { TeamInput } from "../components/TeamInput";
@@ -120,6 +121,47 @@ export const canManage = (roles: string[]) =>
   roles.includes("admin") || roles.includes("race_office");
 export const canTiming = (roles: string[]) =>
   roles.includes("admin") || roles.includes("timing");
+
+// Gemeinsamer Event-Selector (Liste laden, robuste Auswahl).
+export function useEventSelector() {
+  const [events, setEvents] = useState<EventDto[]>([]);
+  const [eventId, setEventId] = useState("");
+  const loadEvents = (selectId?: string) =>
+    api.listEvents().then((e) => {
+      setEvents(e);
+      setEventId((cur) => {
+        if (selectId) return selectId;
+        if (cur && e.some((x) => x.id === cur)) return cur;
+        return e[0]?.id ?? "";
+      });
+    });
+  useEffect(() => {
+    loadEvents();
+  }, []);
+  return { events, eventId, setEventId, loadEvents };
+}
+
+export function EventSelect({
+  events,
+  eventId,
+  onChange,
+}: {
+  events: EventDto[];
+  eventId: string;
+  onChange: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <label>
+      {t("register.event")}
+      <select value={eventId} onChange={(e) => onChange(e.target.value)}>
+        {events.map((ev) => (
+          <option key={ev.id} value={ev.id}>{ev.name} ({ev.year})</option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 // --- Voll-Bearbeitung einer Anmeldung --------------------------------------
 type EditForm = {

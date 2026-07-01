@@ -32,6 +32,8 @@ export function AdminLayout() {
         <nav>
           <NavLink to="/team" end>{t("nav.admin")}</NavLink>
           <NavLink to="/team/special">{t("nav.special")}</NavLink>
+          <NavLink to="/team/veryspecial">{t("nav.veryspecial")}</NavLink>
+          <NavLink to="/team/sepa">{t("nav.sepa")}</NavLink>
           <NavLink to="/team/zeiterfassung">{t("nav.timing")}</NavLink>
         </nav>
         <LanguageSwitcher />

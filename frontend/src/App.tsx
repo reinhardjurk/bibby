@@ -4,8 +4,10 @@ import { AdminPage } from "./pages/AdminPage";
 import { ManagePage } from "./pages/ManagePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResultsPage } from "./pages/ResultsPage";
+import { SepaAdminPage } from "./pages/SepaAdminPage";
 import { SpecialAdminPage } from "./pages/SpecialAdminPage";
 import { TimingPage } from "./pages/TimingPage";
+import { VerySpecialAdminPage } from "./pages/VerySpecialAdminPage";
 
 /** Alte QR-/Deep-Links auf die neue Zeiterfassungs-URL (inkl. Query). */
 function TimingRedirect() {
@@ -28,6 +30,8 @@ export default function App() {
       <Route path="/team" element={<AdminLayout />}>
         <Route index element={<AdminPage />} />
         <Route path="special" element={<SpecialAdminPage />} />
+        <Route path="veryspecial" element={<VerySpecialAdminPage />} />
+        <Route path="sepa" element={<SepaAdminPage />} />
         <Route path="zeiterfassung" element={<TimingPage />} />
       </Route>
 
