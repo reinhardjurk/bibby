@@ -19,7 +19,6 @@ from .config import settings
 from .models import (
     AppSetting,
     BibAssignment,
-    Category,
     Competition,
     Event,
     Participant,
@@ -127,22 +126,25 @@ async def participation_count(session: AsyncSession, participant_id: uuid.UUID) 
 # =========================================================================
 # Altersklassen
 # =========================================================================
+def compute_age_class(age: int) -> str:
+    """Geschlechtsneutrale Altersklasse in 5-Jahres-Schritten (Laufsport-Schema).
+    Unter 20 = "U20"; ab 20 in Fünfergruppen: AK20 (20–24), AK25 (25–29),
+    AK30, AK35 … (das Geschlecht wird separat gewertet)."""
+    if age < 20:
+        return "U20"
+    return f"AK{(age // 5) * 5}"
+
+
 async def resolve_category(
     session: AsyncSession, event: Event, participant: Participant
 ) -> str | None:
+    """Altersklasse aus dem Alter am Veranstaltungstag (Jahr − Geburtsjahr).
+    Berechnet nach compute_age_class; die Category-Tabelle wird nicht mehr
+    benötigt (session-Parameter bleibt aus Signaturgründen erhalten)."""
+    if participant.birth_date is None:
+        return None
     age = event.event_date.year - participant.birth_date.year
-    cats = (
-        await session.execute(select(Category).where(Category.event_id == event.id))
-    ).scalars().all()
-    for c in cats:
-        if c.gender and c.gender != participant.gender:
-            continue
-        if c.min_age is not None and age < c.min_age:
-            continue
-        if c.max_age is not None and age > c.max_age:
-            continue
-        return c.code
-    return None
+    return compute_age_class(age)
 
 
 def compute_price_cents(event: Event, competition: Competition, birth_date: date) -> int:
