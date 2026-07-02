@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import mailer
 from .config import settings
 from .models import (
+    AppSetting,
     BibAssignment,
     Category,
     Competition,
@@ -313,6 +314,9 @@ async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> i
     ).scalars().all()
     by_key = {(t.bib_number, t.lap_index): t for t in crossings}
 
+    # count = Anzahl Anmeldungen, für die tatsächlich eine Zeit ermittelt wurde
+    # (nicht bloß verarbeitet) -> 0 ist ein klares Signal für "keine Startzeit
+    # gesetzt" oder "keine Zielüberquerung erfasst".
     count = 0
     for reg, bib in rows:
         comp = comps.get(reg.competition_id)
@@ -323,7 +327,8 @@ async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> i
             if crossing is not None:
                 finish = (crossing.absolute_time - start).total_seconds()
         reg.finish_seconds = finish
-        count += 1
+        if finish is not None:
+            count += 1
 
     await session.commit()
     return count
@@ -354,11 +359,43 @@ def generate_mandate_reference(year: int) -> str:
     return f"BIBBY-{year}-{uuid.uuid4().hex[:8].upper()}"
 
 
-async def send_confirmation_email(registration: Registration, manage_token: str) -> None:
+# =========================================================================
+# Laufzeit-Konfiguration (app_setting) – z. B. Mail-Testmodus umschaltbar
+# ohne Redeploy. Ist kein Wert gesetzt, gilt der Env-Default aus settings.
+# =========================================================================
+MAIL_TEST_MODE_KEY = "mail_test_mode"
+
+
+async def get_app_setting(session: AsyncSession, key: str) -> str | None:
+    return (
+        await session.execute(select(AppSetting.value).where(AppSetting.key == key))
+    ).scalar_one_or_none()
+
+
+async def set_app_setting(session: AsyncSession, key: str, value: str) -> None:
+    row = await session.get(AppSetting, key)
+    if row is None:
+        session.add(AppSetting(key=key, value=value))
+    else:
+        row.value = value
+
+
+async def get_mail_test_mode(session: AsyncSession) -> bool:
+    """Effektiver Testmodus: DB-Override (falls gesetzt) vor Env-Default."""
+    stored = await get_app_setting(session, MAIL_TEST_MODE_KEY)
+    if stored is None:
+        return settings.mail_test_mode
+    return stored == "true"
+
+
+async def send_confirmation_email(
+    registration: Registration, manage_token: str, session: AsyncSession
+) -> None:
     """Bestätigungsmail mit Verwaltungslink (über Scaleway TEM / mailer).
 
     Fehler beim Mailversand dürfen die Anmeldung nicht scheitern lassen –
-    daher wird eine Ausnahme nur geloggt.
+    daher wird eine Ausnahme nur geloggt. Der Testmodus wird zur Laufzeit
+    aus app_setting gelesen (umschaltbar im Special-Admin).
     """
     link = f"{settings.public_base_url}/manage?token={manage_token}"
     if registration.language == "en":
@@ -374,8 +411,11 @@ async def send_confirmation_email(registration: Registration, manage_token: str)
             f"Deine Anmeldung kannst du hier jederzeit verwalten oder korrigieren:\n{link}\n"
         )
 
+    test_mode = await get_mail_test_mode(session)
     try:
-        await mailer.send_email(to=registration.email, subject=subject, text=text)
+        await mailer.send_email(
+            to=registration.email, subject=subject, text=text, test_mode=test_mode
+        )
     except Exception as exc:  # noqa: BLE001 – Mailversand darf nicht blockieren
         print(f"[email] Versand an {registration.email} fehlgeschlagen: {exc}")
 

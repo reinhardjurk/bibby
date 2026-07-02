@@ -99,6 +99,12 @@ variable "mail_test_mode" {
   default     = true
 }
 
+variable "min_lap_seconds" {
+  description = "Mindestabstand (Sek.) zwischen zwei gezählten Zielüberquerungen; kürzere gelten als Doppelerfassung"
+  type        = number
+  default     = 60
+}
+
 variable "mail_test_recipient" {
   description = "Empfänger im Test-Modus"
   type        = string

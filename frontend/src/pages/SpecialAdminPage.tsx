@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { adminApi, formatTime, type AdminRegistration, type TimingRow } from "../api";
+import {
+  adminApi,
+  formatTime,
+  type AdminRegistration,
+  type MailSettings,
+  type TimingRow,
+} from "../api";
 import { useI18n } from "../i18n";
 import {
   AdminChrome,
@@ -34,6 +40,7 @@ function SpecialDashboard({ roles, lang }: { roles: string[]; lang: string }) {
 
   return (
     <>
+      <MailModeToggle roles={roles} />
       <EventSelect events={events} eventId={eventId} onChange={setEventId} />
 
       {eventId && <RegistrationsList eventId={eventId} canManage={mng} />}
@@ -44,8 +51,68 @@ function SpecialDashboard({ roles, lang }: { roles: string[]; lang: string }) {
   );
 }
 
-function RegistrationsList({ eventId, canManage }: { eventId: string; canManage: boolean }) {
+/** Laufzeit-Schalter Test-/Live-Mailversand (Änderung nur für Admin). */
+function MailModeToggle({ roles }: { roles: string[] }) {
   const { t } = useI18n();
+  const isAdmin = roles.includes("admin");
+  const [ms, setMs] = useState<MailSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.getMailSettings().then(setMs).catch((e) => setErr(String(e)));
+  }, []);
+
+  async function toggle() {
+    if (!ms) return;
+    const next = !ms.test_mode;
+    // Von Test -> Live: bewusst bestätigen (dann gehen Mails an echte Empfänger!).
+    if (!next && !window.confirm(t("mail.confirmLive"))) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      setMs(await adminApi.setMailMode(next));
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card">
+      <h3>{t("mail.title")}</h3>
+      {err && <p className="error">{err}</p>}
+      {ms && (
+        <>
+          <p>
+            {ms.test_mode ? (
+              <>
+                <span className="badge">{t("mail.stateTest")}</span>{" "}
+                {t("mail.testHint", { recipient: ms.test_recipient })}
+              </>
+            ) : (
+              <>
+                <span className="badge badge-live">{t("mail.stateLive")}</span>{" "}
+                {t("mail.liveHint")}
+              </>
+            )}
+          </p>
+          {isAdmin ? (
+            <button onClick={toggle} disabled={busy}>
+              {ms.test_mode ? t("mail.switchToLive") : t("mail.switchToTest")}
+            </button>
+          ) : (
+            <p className="hint">{t("mail.adminOnly")}</p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function RegistrationsList({ eventId, canManage }: { eventId: string; canManage: boolean }) {
+  const { t, lang } = useI18n();
   const PAGE = 50;
   const [regs, setRegs] = useState<AdminRegistration[]>([]);
   const [total, setTotal] = useState(0);
@@ -114,7 +181,7 @@ function RegistrationsList({ eventId, canManage }: { eventId: string; canManage:
           <tr>
             <th>{t("admin.bib")}</th>
             <th>{t("admin.name")}</th>
-            <th>{t("admin.competition")}</th>
+            <th>{t("admin.race")}</th>
             <th>{t("admin.time")}</th>
             <th>{t("admin.payment")}</th>
           </tr>
@@ -124,7 +191,7 @@ function RegistrationsList({ eventId, canManage }: { eventId: string; canManage:
             <tr key={r.id}>
               <td>{r.bib_number ?? "–"}</td>
               <td>{r.first_name} {r.last_name}</td>
-              <td>{t("register.laps", { n: r.lap_count })}</td>
+              <td>{r.competition_title?.[lang] || t("register.laps", { n: r.lap_count })}</td>
               <td>{r.finish_seconds == null ? "–" : formatTime(r.finish_seconds)}</td>
               <td>
                 {r.payment_method ? t(`pay.method.${r.payment_method}`) : "–"} ·{" "}

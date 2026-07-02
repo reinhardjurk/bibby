@@ -90,7 +90,7 @@ async def create_registration(
         payment.mandate_granted_at = datetime.now(timezone.utc)
     session.add(payment)
 
-    await services.send_confirmation_email(registration, raw_token)
+    await services.send_confirmation_email(registration, raw_token, session)
     await session.commit()
 
     return RegistrationOut(

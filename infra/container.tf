@@ -28,12 +28,17 @@ resource "scaleway_container" "api" {
   max_scale      = 5
   deploy         = true
 
+  # "redirected" = nur HTTPS (HTTP wird auf HTTPS umgeleitet) -> HTTPSConnectionsOnly=true.
+  # "enabled"    = HTTP UND HTTPS erlaubt                     -> HTTPSConnectionsOnly=false.
+  http_option = "redirected"
+
   environment_variables = {
     BIBBY_PUBLIC_BASE_URL    = var.public_base_url
     BIBBY_DATABASE_SSL       = "true"
     BIBBY_CORS_ORIGINS       = jsonencode(var.cors_origins)
     BIBBY_SEPA_CREDITOR_NAME = var.sepa_creditor_name
     BIBBY_SEPA_CREDITOR_ID   = var.sepa_creditor_id
+    BIBBY_MIN_LAP_SECONDS    = tostring(var.min_lap_seconds)
     # E-Mail (TEM)
     BIBBY_TEM_FROM_EMAIL      = "no-reply@${var.tem_domain}"
     BIBBY_TEM_FROM_NAME       = var.tem_from_name

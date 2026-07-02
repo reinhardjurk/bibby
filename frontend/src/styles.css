@@ -112,6 +112,7 @@ table.results tr.dnf { color: var(--muted); }
   font-size: 0.8rem;
   white-space: nowrap;
 }
+.badge.badge-live { background: #b91c1c; color: #fff; }
 
 .admin-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .edit-panel { border: 2px solid var(--accent); margin-top: 10px; }

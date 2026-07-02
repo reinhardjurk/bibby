@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import crypto, services
+from ..config import settings
 from ..db import get_session
 from ..models import (
     AppUser,
@@ -37,6 +38,8 @@ from ..schemas import (
     EventUpdate,
     DeviceTokenOut,
     LoginRequest,
+    MailModeUpdate,
+    MailSettings,
     ParticipantMerge,
     ResultList,
     SessionToken,
@@ -79,6 +82,37 @@ async def me(
 ) -> SessionToken:
     roles = await user_roles(session, user.id)
     return SessionToken(token="(current)", expires_at=datetime.now(timezone.utc), roles=sorted(roles))
+
+
+# --- Mail-Testmodus (Laufzeit-Schalter, kein Redeploy) --------------------
+@router.get("/mail-settings", response_model=MailSettings)
+async def get_mail_settings(
+    _user=Depends(require_roles("admin", "race_office", "timing", "viewer")),
+    session: AsyncSession = Depends(get_session),
+) -> MailSettings:
+    stored = await services.get_app_setting(session, services.MAIL_TEST_MODE_KEY)
+    return MailSettings(
+        test_mode=await services.get_mail_test_mode(session),
+        test_recipient=settings.mail_test_recipient,
+        overridden=stored is not None,
+    )
+
+
+@router.patch("/mail-settings", response_model=MailSettings)
+async def update_mail_settings(
+    body: MailModeUpdate,
+    _user=Depends(require_roles("admin")),  # heikel: nur Admin darf Live schalten
+    session: AsyncSession = Depends(get_session),
+) -> MailSettings:
+    await services.set_app_setting(
+        session, services.MAIL_TEST_MODE_KEY, "true" if body.test_mode else "false"
+    )
+    await session.commit()
+    return MailSettings(
+        test_mode=body.test_mode,
+        test_recipient=settings.mail_test_recipient,
+        overridden=True,
+    )
 
 
 # --- Anmeldungen auflisten (paginiert + Suche) ----------------------------
@@ -154,6 +188,7 @@ async def list_registrations(
             "status": reg.status,
             "bib_number": bib.bib_number if bib else None,
             "competition_id": str(comp.id),
+            "competition_title": comp.title_i18n,
             "lap_count": comp.lap_count,
             "payment_method": payments[reg.id].method if reg.id in payments else None,
             "payment_status": payments[reg.id].status if reg.id in payments else None,

@@ -133,6 +133,7 @@ export type AdminRegistration = {
   status: string;
   bib_number: number | null;
   competition_id: string;
+  competition_title: Record<string, string> | null;
   lap_count: number;
   payment_method: string | null;
   payment_status: string | null;
@@ -285,6 +286,18 @@ export const adminApi = {
     body: { status: string; bib_number?: number; absolute_time?: string }
   ) => adminReq(`/timings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTiming: (id: string) => adminReq(`/timings/${id}`, { method: "DELETE" }),
+  getMailSettings: () => adminReq<MailSettings>("/admin/mail-settings"),
+  setMailMode: (testMode: boolean) =>
+    adminReq<MailSettings>("/admin/mail-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ test_mode: testMode }),
+    }),
+};
+
+export type MailSettings = {
+  test_mode: boolean;
+  test_recipient: string;
+  overridden: boolean;
 };
 
 /** SEPA-Lastschriften als CSV (mit Auth-Header) laden – gibt Blob + Dateiname. */

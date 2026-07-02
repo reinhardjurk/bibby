@@ -137,6 +137,18 @@ class SessionToken(BaseModel):
     roles: list[str]
 
 
+class MailSettings(BaseModel):
+    """Aktueller (effektiver) Mail-Testmodus + Kontext für die Anzeige."""
+
+    test_mode: bool
+    test_recipient: str
+    overridden: bool  # True = per app_setting gesetzt, False = Env-Default
+
+
+class MailModeUpdate(BaseModel):
+    test_mode: bool
+
+
 class BibReassign(BaseModel):
     competition_id: uuid.UUID
 
