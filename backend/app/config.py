@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # Öffentliche Basis-URL der SPA (für Links in E-Mails).
     public_base_url: str = "https://bibby.example"
 
+    # Build-/Versionskennung; wird beim Docker-Build via BIBBY_BUILD gesetzt
+    # (z. B. Git-Kurz-SHA) und unten auf der Seite angezeigt.
+    build: str = "dev"
+
     # App-seitige Feldverschlüsselung (IBAN). Fernet-Key (urlsafe base64, 32 Byte).
     # Leer = aus secret_key abgeleitet (nur für Entwicklung empfohlen).
     field_encryption_key: str = ""
@@ -46,8 +50,10 @@ class Settings(BaseSettings):
     bib_start_number: int = 1
     # Fallback-T-Shirt-Optionen, falls das Event keine eigenen konfiguriert hat.
     default_tshirt_options: list[str] = ["Kein T-Shirt (Spende)", "XS", "S", "M", "L", "XL"]
-    # Mindestabstand zweier Linienüberquerungen derselben Startnummer (Sek.).
-    # Schützt vor Doppelerfassung; kürzere Abstände werden als duplicate markiert.
+    # Zeitfenster (Sek.), innerhalb dessen Erfassungen derselben Startnummer als
+    # EINE Überquerung gelten (mehrere Zeitnehmer). Solche Erfassungen werden zu
+    # einer Runde zusammengefasst; die Überquerungszeit ist ihr Mittelwert. Ein
+    # größerer Abstand beginnt eine neue Runde.
     min_lap_seconds: int = 60
 
     cors_origins: list[str] = ["http://localhost:5173"]

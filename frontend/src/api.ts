@@ -286,6 +286,7 @@ export const adminApi = {
     body: { status: string; bib_number?: number; absolute_time?: string }
   ) => adminReq(`/timings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTiming: (id: string) => adminReq(`/timings/${id}`, { method: "DELETE" }),
+  version: () => req<VersionInfo>("/version"),
   getMailSettings: () => adminReq<MailSettings>("/admin/mail-settings"),
   setMailMode: (testMode: boolean) =>
     adminReq<MailSettings>("/admin/mail-settings", {
@@ -299,6 +300,8 @@ export type MailSettings = {
   test_recipient: string;
   overridden: boolean;
 };
+
+export type VersionInfo = { backend: string; db_schema: string | null };
 
 /** SEPA-Lastschriften als CSV (mit Auth-Header) laden – gibt Blob + Dateiname. */
 export async function downloadSepaExport(

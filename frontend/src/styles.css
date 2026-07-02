@@ -113,6 +113,7 @@ table.results tr.dnf { color: var(--muted); }
   white-space: nowrap;
 }
 .badge.badge-live { background: #b91c1c; color: #fff; }
+.build-info { margin-top: 28px; text-align: center; font-size: 0.72rem; color: var(--muted); }
 
 .admin-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .edit-panel { border: 2px solid var(--accent); margin-top: 10px; }

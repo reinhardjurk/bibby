@@ -37,17 +37,84 @@ function SpecialDashboard({ roles, lang }: { roles: string[]; lang: string }) {
   const { events, eventId, setEventId } = useEventSelector();
   const mng = canManageRoles(roles);
   const tim = canTimingRoles(roles);
+  // Trigger, mit dem der Recompute-Button die Anmeldungsliste neu laden lässt.
+  const [refresh, setRefresh] = useState(0);
 
   return (
     <>
-      <MailModeToggle roles={roles} />
       <EventSelect events={events} eventId={eventId} onChange={setEventId} />
 
-      {eventId && <RegistrationsList eventId={eventId} canManage={mng} />}
+      {eventId && <RegistrationsList eventId={eventId} refresh={refresh} />}
       {eventId && <CaptureLookup eventId={eventId} canTiming={tim} />}
+      {mng && eventId && (
+        <RecomputeTimes eventId={eventId} onDone={() => setRefresh((n) => n + 1)} />
+      )}
       {eventId && <InternalResults eventId={eventId} lang={lang} />}
       {tim && eventId && <DeviceTokens eventId={eventId} />}
+      <MailModeToggle roles={roles} />
+      <BuildInfo />
     </>
+  );
+}
+
+/** Versions-/Build-Anzeige ganz unten: Frontend-Build, Backend-Build, DB-Schema. */
+function BuildInfo() {
+  const [backend, setBackend] = useState("?");
+  const [dbSchema, setDbSchema] = useState("?");
+
+  useEffect(() => {
+    adminApi
+      .version()
+      .then((v) => {
+        setBackend(v.backend);
+        setDbSchema(v.db_schema ?? "?");
+      })
+      .catch(() => {
+        setBackend("?");
+        setDbSchema("?");
+      });
+  }, []);
+
+  return (
+    <p className="build-info">
+      Frontend {__APP_BUILD__} · Backend {backend} · DB {dbSchema}
+    </p>
+  );
+}
+
+/** "Alle Laufzeiten berechnen" – eigener Block; stößt danach ein Reload der
+ *  Anmeldungsliste an (über den refresh-Trigger im Dashboard). */
+function RecomputeTimes({ eventId, onDone }: { eventId: string; onDone: () => void }) {
+  const { t } = useI18n();
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  return (
+    <section className="card">
+      <button
+        className="primary"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setMsg("");
+          setError("");
+          try {
+            const r = await adminApi.recomputeTimes(eventId);
+            setMsg(t("admin.recomputed", { n: r.updated }));
+            onDone();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : t("common.error"));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? t("common.loading") : t("admin.recompute")}
+      </button>{" "}
+      {msg && <span className="hint">{msg}</span>}
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 
@@ -111,7 +178,7 @@ function MailModeToggle({ roles }: { roles: string[] }) {
   );
 }
 
-function RegistrationsList({ eventId, canManage }: { eventId: string; canManage: boolean }) {
+function RegistrationsList({ eventId, refresh }: { eventId: string; refresh: number }) {
   const { t, lang } = useI18n();
   const PAGE = 50;
   const [regs, setRegs] = useState<AdminRegistration[]>([]);
@@ -119,8 +186,6 @@ function RegistrationsList({ eventId, canManage }: { eventId: string; canManage:
   const [offset, setOffset] = useState(0);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
-  const [recMsg, setRecMsg] = useState("");
-  const [recBusy, setRecBusy] = useState(false);
 
   const reload = () => {
     adminApi
@@ -134,7 +199,7 @@ function RegistrationsList({ eventId, canManage }: { eventId: string; canManage:
   useEffect(() => {
     const h = setTimeout(reload, 250);
     return () => clearTimeout(h);
-  }, [eventId, q, offset]);
+  }, [eventId, q, offset, refresh]);
   useEffect(() => {
     setOffset(0);
   }, [eventId]);
@@ -150,30 +215,6 @@ function RegistrationsList({ eventId, canManage }: { eventId: string; canManage:
           setOffset(0);
         }}
       />
-      {canManage && (
-        <p>
-          <button
-            className="primary"
-            disabled={recBusy}
-            onClick={async () => {
-              setRecBusy(true);
-              setRecMsg("");
-              try {
-                const r = await adminApi.recomputeTimes(eventId);
-                setRecMsg(t("admin.recomputed", { n: r.updated }));
-                reload();
-              } catch (e) {
-                setError(e instanceof Error ? e.message : t("common.error"));
-              } finally {
-                setRecBusy(false);
-              }
-            }}
-          >
-            {recBusy ? t("common.loading") : t("admin.recompute")}
-          </button>{" "}
-          {recMsg && <span className="hint">{recMsg}</span>}
-        </p>
-      )}
       {error && <p className="error">{error}</p>}
 
       <table className="results">

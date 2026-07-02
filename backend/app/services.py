@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import unicodedata
 import uuid
-from datetime import date, datetime
+from collections.abc import Iterable
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -156,14 +157,36 @@ def compute_price_cents(event: Event, competition: Competition, birth_date: date
 # =========================================================================
 # Rundenableitung
 # =========================================================================
-async def recompute_laps(session: AsyncSession, event_id: uuid.UUID, bib_number: int) -> None:
-    """Vergibt lap_index für alle Überquerungen einer Startnummer neu.
+def _mean_datetime(times: list[datetime]) -> datetime:
+    """Mittelwert mehrerer Zeitpunkte (numerisch stabil über einen Basiswert)."""
+    base = min(times)
+    avg_offset = sum((t - base).total_seconds() for t in times) / len(times)
+    return base + timedelta(seconds=avg_offset)
 
-    Regeln:
-    - Nur Records mit status in ('valid','manual') zählen.
-    - Records, die < min_lap_seconds nach der letzten gezählten Überquerung
-      liegen, werden als 'duplicate' markiert (Doppelerfassung / Prellen).
-    - Aufruf nach jedem Ingestion-Batch bzw. nach manueller Korrektur.
+
+def lap_crossing_times(records: Iterable[TimingRecord]) -> dict[int, datetime]:
+    """Je Runde (lap_index) die Überquerungszeit = Mittelwert aller Erfassungen
+    dieser Runde (mehrere Zeitnehmer erfassen dieselbe Überquerung)."""
+    by_lap: dict[int, list[datetime]] = {}
+    for rec in records:
+        if rec.lap_index is not None:
+            by_lap.setdefault(rec.lap_index, []).append(rec.absolute_time)
+    return {lap: _mean_datetime(ts) for lap, ts in by_lap.items()}
+
+
+async def recompute_laps(session: AsyncSession, event_id: uuid.UUID, bib_number: int) -> None:
+    """Ordnet die Erfassungen einer Startnummer Runden (Zielüberquerungen) zu.
+
+    Modell mit mehreren Zeitnehmern: Erfassungen, die weniger als
+    min_lap_seconds auseinanderliegen, gehören zur GLEICHEN Überquerung
+    (nur von verschiedenen Geräten aufgenommen). Sie bilden ein Cluster und
+    teilen sich denselben lap_index; die eigentliche Überquerungszeit ist der
+    Mittelwert dieser Erfassungen (siehe lap_crossing_times). Ein Abstand
+    >= min_lap_seconds zur vorherigen Erfassung beginnt eine neue Runde.
+
+    Status: von der Stab-Korrektur auf 'ignored' gesetzte Records werden
+    übersprungen; alle übrigen zählen (kein automatisches 'duplicate' mehr).
+    Aufruf nach jedem Ingestion-Batch bzw. nach manueller Korrektur.
     """
     records = (
         await session.execute(
@@ -171,33 +194,24 @@ async def recompute_laps(session: AsyncSession, event_id: uuid.UUID, bib_number:
             .where(
                 TimingRecord.event_id == event_id,
                 TimingRecord.bib_number == bib_number,
-                TimingRecord.status.in_(("valid", "manual", "duplicate")),
+                TimingRecord.status != "ignored",
             )
             .order_by(TimingRecord.absolute_time)
         )
     ).scalars().all()
 
     lap = 0
-    last_counted: datetime | None = None
+    prev_time: datetime | None = None
     for rec in records:
-        if rec.status == "manual":
-            # Manuell gesetzte Records werden immer gezählt.
-            lap += 1
-            rec.lap_index = lap
-            last_counted = rec.absolute_time
-            continue
-        too_close = (
-            last_counted is not None
-            and (rec.absolute_time - last_counted).total_seconds() < settings.min_lap_seconds
-        )
-        if too_close:
-            rec.status = "duplicate"
-            rec.lap_index = None
-        else:
+        if (
+            prev_time is None
+            or (rec.absolute_time - prev_time).total_seconds() >= settings.min_lap_seconds
+        ):
+            lap += 1  # neue Überquerung (Cluster-Grenze)
+        rec.lap_index = lap
+        if rec.status != "manual":
             rec.status = "valid"
-            lap += 1
-            rec.lap_index = lap
-            last_counted = rec.absolute_time
+        prev_time = rec.absolute_time
 
 
 # =========================================================================
@@ -244,10 +258,11 @@ async def build_results(
         splits: list[LapSplit] = []
         finish_seconds: float | None = None
         if start is not None:
-            for c in crossings:
-                elapsed = (c.absolute_time - start).total_seconds()
-                splits.append(LapSplit(lap_index=c.lap_index, elapsed_seconds=elapsed))
-                if c.lap_index == competition.lap_count:
+            lap_times = lap_crossing_times(crossings)  # Runde -> gemittelte Zeit
+            for lap in sorted(lap_times):
+                elapsed = (lap_times[lap] - start).total_seconds()
+                splits.append(LapSplit(lap_index=lap, elapsed_seconds=elapsed))
+                if lap == competition.lap_count:
                     finish_seconds = elapsed
 
         rows.append(
@@ -304,7 +319,8 @@ async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> i
         await recompute_laps(session, event_id, bib.bib_number)
     await session.flush()
 
-    # Zielüberquerungen (lap_index gesetzt) einmalig laden und indizieren.
+    # Zielüberquerungen (lap_index gesetzt) einmalig laden und je Startnummer
+    # die gemittelte Zeit pro Runde bilden (mehrere Zeitnehmer -> Mittelwert).
     crossings = (
         await session.execute(
             select(TimingRecord).where(
@@ -312,7 +328,13 @@ async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> i
             )
         )
     ).scalars().all()
-    by_key = {(t.bib_number, t.lap_index): t for t in crossings}
+    per_bib: dict[int, list[TimingRecord]] = {}
+    for t in crossings:
+        per_bib.setdefault(t.bib_number, []).append(t)
+    mean_by_key: dict[tuple[int, int], datetime] = {}
+    for bib_number, recs in per_bib.items():
+        for lap, mean_time in lap_crossing_times(recs).items():
+            mean_by_key[(bib_number, lap)] = mean_time
 
     # count = Anzahl Anmeldungen, für die tatsächlich eine Zeit ermittelt wurde
     # (nicht bloß verarbeitet) -> 0 ist ein klares Signal für "keine Startzeit
@@ -323,9 +345,9 @@ async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> i
         start = (comp.start_time or event.default_start_time) if comp else None
         finish = None
         if comp and start is not None:
-            crossing = by_key.get((bib.bib_number, comp.lap_count))
-            if crossing is not None:
-                finish = (crossing.absolute_time - start).total_seconds()
+            crossing_time = mean_by_key.get((bib.bib_number, comp.lap_count))
+            if crossing_time is not None:
+                finish = (crossing_time - start).total_seconds()
         reg.finish_seconds = finish
         if finish is not None:
             count += 1

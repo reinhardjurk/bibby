@@ -13,6 +13,11 @@ COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 
+# Build-Kennung (z. B. Git-Kurz-SHA) beim Bauen mitgeben:
+#   docker build --build-arg BUILD=$(git rev-parse --short HEAD) ...
+ARG BUILD=dev
+ENV BIBBY_BUILD=$BUILD
+
 # Scaleway Serverless Containers setzen $PORT; lokal Default 8000.
 # Migrationen laufen NICHT beim Start (Serverless-Pooler + parallele Instanzen
 # sind dafür ungeeignet); sie werden separat/manuell ausgeführt (siehe README).
