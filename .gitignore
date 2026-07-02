@@ -36,3 +36,7 @@ pgdata/
 *.swp
 .idea/
 .vscode/
+
+# Lokale Artefakte (Shell-History kann Secrets enthalten!)
+history.txt
+
