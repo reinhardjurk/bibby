@@ -565,8 +565,9 @@ def render_certificate_pdf(
     <html><head><meta charset="utf-8"><style>
       @page {{ size: A4 portrait; margin: 0; }}
       html, body {{ margin: 0; padding: 0; }}
-      .page {{ width: 210mm; height: 297mm; display: table; {bg_css} }}
-      .center {{ display: table-cell; vertical-align: middle; text-align: center; }}
+      .page {{ width: 210mm; height: 297mm; {bg_css}
+               display: flex; align-items: center; justify-content: center; }}
+      .content {{ text-align: center; }}
       .name {{ font-family: Helvetica, Arial, sans-serif; font-size: 34pt;
                font-weight: 700; color: #1c2430; }}
       .time {{ font-family: Helvetica, Arial, sans-serif; font-size: 26pt;
@@ -574,7 +575,7 @@ def render_certificate_pdf(
       .line {{ font-family: Helvetica, Arial, sans-serif; font-size: 18pt;
                margin-top: 5mm; color: #1c2430; }}
     </style></head><body>
-      <div class="page"><div class="center">
+      <div class="page"><div class="content">
         <div class="name">{escape(first_name)} {escape(last_name)}</div>
         <div class="time">{escape(time_text)}</div>
         {lines_html}
