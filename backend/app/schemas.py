@@ -66,6 +66,8 @@ class ManageView(BaseModel):
     suggested_team: str | None = None
     tshirt: str | None = None
     tshirt_options: list[str] = []
+    # Netto-Laufzeit (Sek.), falls berechnet – für die Urkunde.
+    finish_seconds: float | None = None
     payment_method: str | None = None
     payment_status: str | None = None
     payment_iban_masked: str | None = None

@@ -7,7 +7,7 @@ import io
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,6 +113,29 @@ async def update_mail_settings(
         test_recipient=settings.mail_test_recipient,
         overridden=True,
     )
+
+
+# --- Urkunden-Hintergrund hochladen ---------------------------------------
+@router.post("/events/{event_id}/certificate-background")
+async def upload_certificate_background(
+    event_id: uuid.UUID,
+    file: UploadFile = File(...),
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Hintergrundvorlage (Bild) für die Teilnehmer-Urkunde speichern."""
+    event = await session.get(Event, event_id)
+    if event is None:
+        raise HTTPException(404, "Event nicht gefunden")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(422, "Bitte ein Bild hochladen (PNG oder JPG).")
+    data = await file.read()
+    if len(data) > 8_000_000:
+        raise HTTPException(413, "Datei zu groß (max. 8 MB).")
+    event.certificate_bg = data
+    event.certificate_bg_mime = file.content_type
+    await session.commit()
+    return {"ok": True, "size": len(data)}
 
 
 # --- Anmeldungen auflisten (paginiert + Suche) ----------------------------

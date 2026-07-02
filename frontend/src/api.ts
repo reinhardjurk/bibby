@@ -23,6 +23,7 @@ export type EventDto = {
   tshirt_options: string[];
   junior_cutoff_date: string | null;
   tshirt_included: boolean;
+  has_certificate_background: boolean;
 };
 
 export type CompetitionDto = {
@@ -57,6 +58,7 @@ export type ManageView = {
   suggested_team: string | null;
   tshirt: string | null;
   tshirt_options: string[];
+  finish_seconds: number | null;
   payment_method: string | null;
   payment_status: string | null;
   payment_iban_masked: string | null;
@@ -102,6 +104,9 @@ export const api = {
     }),
 
   bibPdfUrl: (token: string) => `${BASE}/manage/bib.pdf?token=${encodeURIComponent(token)}`,
+
+  certificatePdfUrl: (token: string) =>
+    `${BASE}/manage/certificate.pdf?token=${encodeURIComponent(token)}`,
 
   getResults: (eventId: string, competitionId: string) =>
     req<ResultList>(`/events/${eventId}/results?competition_id=${competitionId}`),
@@ -322,6 +327,26 @@ export async function downloadSepaExport(
   const cd = res.headers.get("Content-Disposition") || "";
   const m = cd.match(/filename="?([^"]+)"?/);
   return { blob: await res.blob(), filename: m ? m[1] : "sepa-export.csv" };
+}
+
+/** Urkunden-Hintergrund (Bild) für ein Event hochladen (Multipart, mit Auth). */
+export async function uploadCertificateBackground(
+  eventId: string,
+  file: File
+): Promise<{ ok: boolean; size: number }> {
+  const form = new FormData();
+  form.append("file", file);
+  // Kein Content-Type setzen – der Browser ergänzt den Multipart-Boundary selbst.
+  const res = await fetch(`${BASE}/admin/events/${eventId}/certificate-background`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${adminToken.get()}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error((d as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 /** Zeiterfassung: sendet erfasste Paare an die Ingestion-API (Geräte-Token). */

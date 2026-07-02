@@ -55,6 +55,7 @@ async def view(token: str = Query(...), session: AsyncSession = Depends(get_sess
         suggested_team=await services.latest_team(session, reg.participant_id),
         tshirt=reg.tshirt,
         tshirt_options=event_tshirt_options(event),
+        finish_seconds=reg.finish_seconds,
         payment_method=payment.method if payment else None,
         payment_status=payment.status if payment else None,
         payment_iban_masked=payment.iban_masked if payment else None,
@@ -115,4 +116,56 @@ async def bib_pdf(token: str = Query(...), session: AsyncSession = Depends(get_s
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="startnummer-{reg.bib.bib_number}.pdf"'},
+    )
+
+
+@router.get("/certificate.pdf")
+async def certificate_pdf(
+    token: str = Query(...), session: AsyncSession = Depends(get_session)
+) -> Response:
+    """Teilnehmer-Urkunde mit Name und Zeit (auf der Event-Hintergrundvorlage)."""
+    reg = await _resolve(token, session)
+    if reg.finish_seconds is None:
+        raise HTTPException(409, "Noch keine Laufzeit vorhanden")
+    participant = await session.get(Participant, reg.participant_id)
+    event = await session.get(Event, reg.event_id)
+    competition = await session.get(Competition, reg.competition_id)
+
+    # Platzierungen (gesamt + Altersklasse) für die Urkunde.
+    en = reg.language == "en"
+    extra_lines: list[str] = []
+    if reg.bib is not None:
+        placement = await services.result_placement(session, competition, reg.bib.bib_number)
+        if placement:
+            if en:
+                extra_lines.append(
+                    f"Overall rank: {placement['overall_rank']} of {placement['overall_total']}"
+                )
+                if placement["class_code"]:
+                    extra_lines.append(
+                        f"Age group {placement['class_code']}: "
+                        f"{placement['class_rank']} of {placement['class_total']}"
+                    )
+            else:
+                extra_lines.append(
+                    f"Platz gesamt: {placement['overall_rank']} von {placement['overall_total']}"
+                )
+                if placement["class_code"]:
+                    extra_lines.append(
+                        f"Altersklasse {placement['class_code']}: "
+                        f"{placement['class_rank']} von {placement['class_total']}"
+                    )
+
+    pdf = services.render_certificate_pdf(
+        first_name=participant.first_name,
+        last_name=participant.last_name,
+        time_text=services.format_duration(reg.finish_seconds),
+        extra_lines=extra_lines,
+        background=event.certificate_bg,
+        background_mime=event.certificate_bg_mime,
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="urkunde-{event.year}.pdf"'},
     )

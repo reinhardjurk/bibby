@@ -291,6 +291,29 @@ async def build_results(
     return [r for r in rows if r.published or not only_published]
 
 
+async def result_placement(
+    session: AsyncSession, competition: Competition, bib_number: int
+) -> dict | None:
+    """Platzierung einer Startnummer im Wettbewerb: gesamt und in der
+    Altersklasse. Ränge kommen aus build_results (über das ganze Feld).
+    None, wenn die Startnummer (noch) keine Zielzeit hat."""
+    rows = await build_results(session, competition, only_published=False)
+    me = next((r for r in rows if r.bib_number == bib_number), None)
+    if me is None or me.finish_seconds is None or me.rank is None:
+        return None
+    finishers = [r for r in rows if r.finish_seconds is not None]
+    same_class = [r for r in finishers if r.category_code == me.category_code]
+    # finishers ist bereits nach Zeit sortiert -> Reihenfolge bleibt erhalten.
+    class_rank = next(i for i, r in enumerate(same_class, 1) if r.bib_number == bib_number)
+    return {
+        "overall_rank": me.rank,
+        "overall_total": len(finishers),
+        "class_code": me.category_code,
+        "class_rank": class_rank,
+        "class_total": len(same_class),
+    }
+
+
 async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> int:
     """Berechnet für alle bestätigten Anmeldungen mit Startnummer die Netto-
     Laufzeit (Zielüberquerung − Startzeit) neu und speichert sie in
@@ -482,3 +505,66 @@ def competition_label(competition: Competition, lang: str = "de") -> str:
         return competition.title_i18n[lang]
     runden = "Runde" if competition.lap_count == 1 else "Runden"
     return f"{competition.lap_count} {runden}"
+
+
+def format_duration(seconds: float) -> str:
+    """Sekunden -> h:mm:ss (bzw. mm:ss unter einer Stunde)."""
+    total = int(round(seconds))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
+def render_certificate_pdf(
+    *,
+    first_name: str,
+    last_name: str,
+    time_text: str,
+    extra_lines: list[str] | None = None,
+    background: bytes | None = None,
+    background_mime: str | None = None,
+) -> bytes:
+    """Teilnehmer-Urkunde als A4-PDF (hoch). Auf eine optionale Hintergrund-
+    vorlage werden Name, Zeit und weitere Zeilen (z. B. Platzierungen) mittig
+    gelegt. WeasyPrint erst hier importiert."""
+    import base64
+    from html import escape
+
+    from weasyprint import HTML
+
+    bg_css = ""
+    if background:
+        mime = background_mime or "image/png"
+        b64 = base64.b64encode(background).decode()
+        bg_css = (
+            f"background-image: url('data:{mime};base64,{b64}');"
+            "background-size: cover; background-position: center;"
+        )
+
+    lines_html = "".join(
+        f'<div class="line">{escape(line)}</div>' for line in (extra_lines or [])
+    )
+
+    html = f"""
+    <html><head><meta charset="utf-8"><style>
+      @page {{ size: A4 portrait; margin: 0; }}
+      html, body {{ margin: 0; padding: 0; }}
+      .page {{ width: 210mm; height: 297mm; display: table; {bg_css} }}
+      .center {{ display: table-cell; vertical-align: middle; text-align: center; }}
+      .name {{ font-family: Helvetica, Arial, sans-serif; font-size: 34pt;
+               font-weight: 700; color: #1c2430; }}
+      .time {{ font-family: Helvetica, Arial, sans-serif; font-size: 26pt;
+               margin-top: 8mm; color: #2f6df0; }}
+      .line {{ font-family: Helvetica, Arial, sans-serif; font-size: 18pt;
+               margin-top: 5mm; color: #1c2430; }}
+    </style></head><body>
+      <div class="page"><div class="center">
+        <div class="name">{escape(first_name)} {escape(last_name)}</div>
+        <div class="time">{escape(time_text)}</div>
+        {lines_html}
+      </div></div>
+    </body></html>
+    """
+    return HTML(string=html).write_pdf()

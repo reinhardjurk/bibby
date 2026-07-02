@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { adminApi, api, type EventCreatePayload } from "../api";
+import { adminApi, api, uploadCertificateBackground, type EventCreatePayload } from "../api";
 import { useI18n } from "../i18n";
 import {
   AdminChrome,
@@ -213,6 +213,9 @@ function EventSettings({ eventId }: { eventId: string }) {
   const [cutoff, setCutoff] = useState("");
   const [included, setIncluded] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [hasBg, setHasBg] = useState(false);
+  const [bgBusy, setBgBusy] = useState(false);
+  const [bgMsg, setBgMsg] = useState("");
 
   useEffect(() => {
     api.listEvents().then((e) => {
@@ -220,9 +223,26 @@ function EventSettings({ eventId }: { eventId: string }) {
       setText((ev?.tshirt_options ?? []).join("\n"));
       setCutoff(ev?.junior_cutoff_date ?? "");
       setIncluded(ev?.tshirt_included ?? false);
+      setHasBg(ev?.has_certificate_background ?? false);
+      setBgMsg("");
       setSaved(false);
     });
   }, [eventId]);
+
+  const uploadBg = async (file: File | undefined) => {
+    if (!file) return;
+    setBgBusy(true);
+    setBgMsg("");
+    try {
+      await uploadCertificateBackground(eventId, file);
+      setHasBg(true);
+      setBgMsg(t("admin.certificateBgSaved"));
+    } catch (err) {
+      setBgMsg(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setBgBusy(false);
+    }
+  };
 
   const save = async () => {
     const opts = text.split("\n").map((s) => s.trim()).filter(Boolean);
@@ -267,6 +287,19 @@ function EventSettings({ eventId }: { eventId: string }) {
         {t("manage.save")}
       </button>
       {saved && <span className="hint"> ✓</span>}
+
+      <h3>{t("admin.certificateBg")}</h3>
+      <p className="hint">
+        {t("admin.certificateBgHint")}{" "}
+        {hasBg ? t("admin.certificateBgPresent") : t("admin.certificateBgNone")}
+      </p>
+      <input
+        type="file"
+        accept="image/png,image/jpeg"
+        disabled={bgBusy}
+        onChange={(e) => uploadBg(e.target.files?.[0])}
+      />
+      {bgMsg && <span className="hint"> {bgMsg}</span>}
     </>
   );
 }

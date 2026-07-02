@@ -13,6 +13,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     UniqueConstraint,
     func,
@@ -60,6 +61,10 @@ class Event(Base):
     junior_cutoff_date: Mapped[date | None] = mapped_column(Date)
     # T-Shirt im Startgeld enthalten (informativ; ändert den Preis nicht).
     tshirt_included: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Hintergrundvorlage für die Teilnehmer-Urkunde (A4). Bild wird in der DB
+    # abgelegt; Name + Zeit werden beim PDF-Erzeugen mittig darübergelegt.
+    certificate_bg: Mapped[bytes | None] = mapped_column(LargeBinary)
+    certificate_bg_mime: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     competitions: Mapped[list[Competition]] = relationship(back_populates="event")

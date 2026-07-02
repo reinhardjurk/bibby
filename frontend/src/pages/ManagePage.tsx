@@ -122,6 +122,14 @@ export function ManagePage() {
           <a href={api.bibPdfUrl(token)} target="_blank" rel="noreferrer">{t("manage.bibPdf")}</a>
         </p>
       )}
+
+      {data.finish_seconds != null && (
+        <p>
+          <a href={api.certificatePdfUrl(token)} target="_blank" rel="noreferrer">
+            {t("manage.certificate")}
+          </a>
+        </p>
+      )}
     </form>
   );
 }
