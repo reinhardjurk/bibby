@@ -14,7 +14,7 @@ COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 
 # Scaleway Serverless Containers setzen $PORT; lokal Default 8000.
+# Migrationen laufen NICHT beim Start (Serverless-Pooler + parallele Instanzen
+# sind dafür ungeeignet); sie werden separat/manuell ausgeführt (siehe README).
 ENV PORT=8000
-# In Prod: Migrationen (Advisory-Lock-gesichert) vor dem Start. Lokal
-# überschreibt docker-compose diesen Befehl.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

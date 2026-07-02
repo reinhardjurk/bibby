@@ -27,6 +27,18 @@ variable "deploy_container" {
   default     = false
 }
 
+variable "db_access_key" {
+  description = "Access Key eines API-Keys mit ServerlessSQLDatabaseReadWrite (DB-Login)"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_secret_key" {
+  description = "Secret Key desselben API-Keys"
+  type        = string
+  sensitive   = true
+}
+
 # Eindeutiger Suffix, damit Bucket-Namen global eindeutig sind.
 variable "bucket_suffix" {
   description = "Eindeutiger Suffix für globale Bucket-Namen"

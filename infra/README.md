@@ -33,16 +33,29 @@ docker push $REG/bibby-api:latest
 # 3. Jetzt den Container deployen (zieht das Image; Migrationen laufen beim Start)
 terraform apply -var deploy_container=true
 
-# 4. SPA bauen & hochladen (VITE_API_BASE = terraform output api_endpoint)
-cd ../frontend && npm run build
+# 4. Migrationen einspielen (manuell/CI — NICHT beim Container-Start!)
+#    Gegen die Prod-DB; die DATABASE_URL ergibt sich aus db_endpoint + Credentials
+#    (Username = Principal-UUID des API-Keys, nicht der Access-Key).
+cd ../backend && python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+BIBBY_DATABASE_URL="postgresql+asyncpg://<principal-uuid>:<secret>@<host>:5432/<db>" \
+BIBBY_DATABASE_SSL=true BIBBY_SECRET_KEY=x alembic upgrade head
+
+# 4b. Ersten Admin anlegen
+BIBBY_DATABASE_URL="..." BIBBY_DATABASE_SSL=true BIBBY_SECRET_KEY=x \
+  python -m app.create_admin <email> <passwort>
+
+# 5. SPA bauen & hochladen (VITE_API_BASE = terraform output api_endpoint, mit https://)
+cd ../frontend && echo "VITE_API_BASE=https://$(cd ../infra && terraform output -raw api_endpoint)" > .env
+npm run build
 AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY \
 aws s3 sync dist/ s3://$(cd ../infra && terraform output -raw spa_bucket) \
-  --endpoint-url https://s3.fr-par.scw.cloud
+  --endpoint-url https://s3.fr-par.scw.cloud --delete
 ```
 
-Migrationen laufen **automatisch** beim Container-Start (`alembic upgrade head`
-im Dockerfile-CMD, per Advisory-Lock gegen parallele Instanzen abgesichert).
-Der Seed läuft in Prod NICHT.
+**Migrationen laufen bewusst NICHT beim Container-Start** (der Serverless-Pooler
+verträgt sich schlecht mit alembics Transaktions-/Lock-Handling). Sie werden vor
+dem Deploy separat ausgeführt (Schritt 4). Der Seed läuft in Prod NICHT.
 
 ## Noch manuell / zu verifizieren
 

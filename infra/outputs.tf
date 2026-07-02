@@ -1,6 +1,6 @@
 output "api_endpoint" {
-  description = "Öffentliche URL des API-Containers"
-  value       = scaleway_container.api.domain_name
+  description = "Öffentliche URL des API-Containers (erst nach deploy_container=true)"
+  value       = one(scaleway_container.api[*].domain_name)
 }
 
 output "registry_endpoint" {

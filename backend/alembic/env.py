@@ -29,10 +29,6 @@ def run_migrations_offline() -> None:
 
 
 def _do_run_migrations(connection) -> None:
-    # Advisory-Lock: serialisiert Migrationen, falls beim Deploy mehrere
-    # Container-Instanzen gleichzeitig starten (Serverless). Wird beim
-    # Verbindungsende automatisch freigegeben.
-    connection.exec_driver_sql("SELECT pg_advisory_lock(823572001)")
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
