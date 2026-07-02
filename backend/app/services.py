@@ -294,23 +294,35 @@ async def build_results(
 async def result_placement(
     session: AsyncSession, competition: Competition, bib_number: int
 ) -> dict | None:
-    """Platzierung einer Startnummer im Wettbewerb: gesamt und in der
-    Altersklasse. Ränge kommen aus build_results (über das ganze Feld).
-    None, wenn die Startnummer (noch) keine Zielzeit hat."""
+    """Platzierung einer Startnummer im Wettbewerb – vier Wertungen:
+    gesamt, gesamt je Geschlecht, Altersklasse, Altersklasse je Geschlecht.
+    Ränge kommen aus build_results (über das ganze Feld, bereits nach Zeit
+    sortiert). None, wenn die Startnummer (noch) keine Zielzeit hat."""
     rows = await build_results(session, competition, only_published=False)
     me = next((r for r in rows if r.bib_number == bib_number), None)
     if me is None or me.finish_seconds is None or me.rank is None:
         return None
     finishers = [r for r in rows if r.finish_seconds is not None]
-    same_class = [r for r in finishers if r.category_code == me.category_code]
-    # finishers ist bereits nach Zeit sortiert -> Reihenfolge bleibt erhalten.
-    class_rank = next(i for i, r in enumerate(same_class, 1) if r.bib_number == bib_number)
+
+    def rank_in(subset: list[ResultRow]) -> int:
+        # finishers ist zeitsortiert -> Teilmengen bleiben sortiert.
+        return next(i for i, r in enumerate(subset, 1) if r.bib_number == bib_number)
+
+    by_gender = [r for r in finishers if r.gender == me.gender]
+    by_class = [r for r in finishers if r.category_code == me.category_code]
+    by_class_gender = [r for r in by_class if r.gender == me.gender]
+
     return {
+        "gender": me.gender,
+        "class_code": me.category_code,
         "overall_rank": me.rank,
         "overall_total": len(finishers),
-        "class_code": me.category_code,
-        "class_rank": class_rank,
-        "class_total": len(same_class),
+        "gender_rank": rank_in(by_gender),
+        "gender_total": len(by_gender),
+        "class_rank": rank_in(by_class),
+        "class_total": len(by_class),
+        "class_gender_rank": rank_in(by_class_gender),
+        "class_gender_total": len(by_class_gender),
     }
 
 
