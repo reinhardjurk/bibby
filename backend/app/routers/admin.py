@@ -49,7 +49,7 @@ from ..security import generate_token, hash_token, require_roles, user_roles
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-SESSION_TTL = timedelta(hours=12)
+SESSION_TTL = timedelta(hours=72)
 
 
 @router.post("/auth/login", response_model=SessionToken)
