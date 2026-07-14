@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import unicodedata
 import uuid
-from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select, text
@@ -25,7 +24,7 @@ from .models import (
     Registration,
     TimingRecord,
 )
-from .schemas import LapSplit, ResultRow
+from .schemas import ResultRow
 
 
 # =========================================================================
@@ -157,7 +156,7 @@ def compute_price_cents(event: Event, competition: Competition, birth_date: date
 
 
 # =========================================================================
-# Rundenableitung
+# Zeitermittlung (ohne Rundenkonzept)
 # =========================================================================
 def _mean_datetime(times: list[datetime]) -> datetime:
     """Mittelwert mehrerer Zeitpunkte (numerisch stabil über einen Basiswert)."""
@@ -166,54 +165,24 @@ def _mean_datetime(times: list[datetime]) -> datetime:
     return base + timedelta(seconds=avg_offset)
 
 
-def lap_crossing_times(records: Iterable[TimingRecord]) -> dict[int, datetime]:
-    """Je Runde (lap_index) die Überquerungszeit = Mittelwert aller Erfassungen
-    dieser Runde (mehrere Zeitnehmer erfassen dieselbe Überquerung)."""
-    by_lap: dict[int, list[datetime]] = {}
-    for rec in records:
-        if rec.lap_index is not None:
-            by_lap.setdefault(rec.lap_index, []).append(rec.absolute_time)
-    return {lap: _mean_datetime(ts) for lap, ts in by_lap.items()}
-
-
-async def recompute_laps(session: AsyncSession, event_id: uuid.UUID, bib_number: int) -> None:
-    """Ordnet die Erfassungen einer Startnummer Runden (Zielüberquerungen) zu.
-
-    Modell mit mehreren Zeitnehmern: Erfassungen, die weniger als
-    min_lap_seconds auseinanderliegen, gehören zur GLEICHEN Überquerung
-    (nur von verschiedenen Geräten aufgenommen). Sie bilden ein Cluster und
-    teilen sich denselben lap_index; die eigentliche Überquerungszeit ist der
-    Mittelwert dieser Erfassungen (siehe lap_crossing_times). Ein Abstand
-    >= min_lap_seconds zur vorherigen Erfassung beginnt eine neue Runde.
-
-    Status: von der Stab-Korrektur auf 'ignored' gesetzte Records werden
-    übersprungen; alle übrigen zählen (kein automatisches 'duplicate' mehr).
-    Aufruf nach jedem Ingestion-Batch bzw. nach manueller Korrektur.
-    """
-    records = (
+async def bib_finish_datetime(
+    session: AsyncSession, event_id: uuid.UUID, bib_number: int
+) -> datetime | None:
+    """Zielzeitpunkt einer Startnummer = Mittelwert ALLER nicht-ignorierten
+    Erfassungen (mehrere Zeitnehmer erfassen dieselbe Zielüberquerung). Kein
+    Rundenkonzept mehr. None, wenn keine gültige Erfassung existiert."""
+    times = (
         await session.execute(
-            select(TimingRecord)
-            .where(
+            select(TimingRecord.absolute_time).where(
                 TimingRecord.event_id == event_id,
                 TimingRecord.bib_number == bib_number,
                 TimingRecord.status != "ignored",
             )
-            .order_by(TimingRecord.absolute_time)
         )
     ).scalars().all()
-
-    lap = 0
-    prev_time: datetime | None = None
-    for rec in records:
-        if (
-            prev_time is None
-            or (rec.absolute_time - prev_time).total_seconds() >= settings.min_lap_seconds
-        ):
-            lap += 1  # neue Überquerung (Cluster-Grenze)
-        rec.lap_index = lap
-        if rec.status != "manual":
-            rec.status = "valid"
-        prev_time = rec.absolute_time
+    if not times:
+        return None
+    return _mean_datetime(list(times))
 
 
 # =========================================================================
@@ -245,27 +214,11 @@ async def build_results(
 
     rows: list[ResultRow] = []
     for reg, bib, participant in regs:
-        crossings = (
-            await session.execute(
-                select(TimingRecord)
-                .where(
-                    TimingRecord.event_id == competition.event_id,
-                    TimingRecord.bib_number == bib.bib_number,
-                    TimingRecord.lap_index.isnot(None),
-                )
-                .order_by(TimingRecord.lap_index)
-            )
-        ).scalars().all()
-
-        splits: list[LapSplit] = []
         finish_seconds: float | None = None
         if start is not None:
-            lap_times = lap_crossing_times(crossings)  # Runde -> gemittelte Zeit
-            for lap in sorted(lap_times):
-                elapsed = (lap_times[lap] - start).total_seconds()
-                splits.append(LapSplit(lap_index=lap, elapsed_seconds=elapsed))
-                if lap == competition.lap_count:
-                    finish_seconds = elapsed
+            finish_dt = await bib_finish_datetime(session, competition.event_id, bib.bib_number)
+            if finish_dt is not None:
+                finish_seconds = (finish_dt - start).total_seconds()
 
         rows.append(
             ResultRow(
@@ -276,7 +229,7 @@ async def build_results(
                 gender=participant.gender,
                 category_code=await resolve_category(session, event, participant),
                 finish_seconds=finish_seconds,
-                splits=splits,
+                splits=[],
                 participation_count=await participation_count(session, participant.id),
                 published=reg.consent_publish,
             )
@@ -351,40 +304,18 @@ async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> i
         )
     ).all()
 
-    # Runden für alle beteiligten Startnummern neu ableiten.
-    for _reg, bib in rows:
-        await recompute_laps(session, event_id, bib.bib_number)
-    await session.flush()
-
-    # Zielüberquerungen (lap_index gesetzt) einmalig laden und je Startnummer
-    # die gemittelte Zeit pro Runde bilden (mehrere Zeitnehmer -> Mittelwert).
-    crossings = (
-        await session.execute(
-            select(TimingRecord).where(
-                TimingRecord.event_id == event_id, TimingRecord.lap_index.isnot(None)
-            )
-        )
-    ).scalars().all()
-    per_bib: dict[int, list[TimingRecord]] = {}
-    for t in crossings:
-        per_bib.setdefault(t.bib_number, []).append(t)
-    mean_by_key: dict[tuple[int, int], datetime] = {}
-    for bib_number, recs in per_bib.items():
-        for lap, mean_time in lap_crossing_times(recs).items():
-            mean_by_key[(bib_number, lap)] = mean_time
-
     # count = Anzahl Anmeldungen, für die tatsächlich eine Zeit ermittelt wurde
     # (nicht bloß verarbeitet) -> 0 ist ein klares Signal für "keine Startzeit
-    # gesetzt" oder "keine Zielüberquerung erfasst".
+    # gesetzt" oder "keine Erfassung".
     count = 0
     for reg, bib in rows:
         comp = comps.get(reg.competition_id)
         start = (comp.start_time or event.default_start_time) if comp else None
         finish = None
-        if comp and start is not None:
-            crossing_time = mean_by_key.get((bib.bib_number, comp.lap_count))
-            if crossing_time is not None:
-                finish = (crossing_time - start).total_seconds()
+        if start is not None:
+            finish_dt = await bib_finish_datetime(session, event_id, bib.bib_number)
+            if finish_dt is not None:
+                finish = (finish_dt - start).total_seconds()
         reg.finish_seconds = finish
         if finish is not None:
             count += 1
@@ -514,11 +445,10 @@ def render_bib_pdf(
 
 
 def competition_label(competition: Competition, lang: str = "de") -> str:
-    """Anzeigename eines Wettbewerbs: title_i18n falls vorhanden, sonst Rundenzahl."""
+    """Anzeigename eines Wettbewerbs: title_i18n falls vorhanden, sonst 'Lauf'."""
     if competition.title_i18n and competition.title_i18n.get(lang):
         return competition.title_i18n[lang]
-    runden = "Runde" if competition.lap_count == 1 else "Runden"
-    return f"{competition.lap_count} {runden}"
+    return "Lauf"
 
 
 def format_duration(seconds: float) -> str:

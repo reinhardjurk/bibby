@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import services
 from ..db import get_session
 from ..models import DeviceToken, TimingRecord
 from ..schemas import TimingBatch, TimingBatchResult, TimingCorrection
@@ -37,7 +36,6 @@ async def ingest(
 
     offset = timedelta(seconds=device.time_offset_seconds)
     accepted = 0
-    affected_bibs: set[int] = set()
 
     for ping in batch.pings:
         stmt = (
@@ -56,11 +54,9 @@ async def ingest(
         result = await session.execute(stmt)
         if result.rowcount:
             accepted += 1
-            affected_bibs.add(ping.bib_number)
 
-    for bib in affected_bibs:
-        await services.recompute_laps(session, event_id, bib)
-
+    # Zielzeiten werden ohne Rundenableitung bei der Ergebnis-/Zeitberechnung
+    # direkt aus den Erfassungen gemittelt – hier nichts weiter zu tun.
     await session.commit()
     return TimingBatchResult(accepted=accepted, duplicates=len(batch.pings) - accepted)
 
@@ -76,17 +72,13 @@ async def correct(
     rec = await session.get(TimingRecord, record_id)
     if rec is None:
         raise HTTPException(404, "Datensatz nicht gefunden")
-    old_bib = rec.bib_number
     if body.bib_number is not None:
         rec.bib_number = body.bib_number
     if body.absolute_time is not None:
         rec.absolute_time = body.absolute_time
     rec.status = body.status
-    await session.flush()
-    await services.recompute_laps(session, rec.event_id, rec.bib_number)
-    # Bei geänderter Startnummer auch die alte neu ableiten.
-    if body.bib_number is not None and body.bib_number != old_bib:
-        await services.recompute_laps(session, rec.event_id, old_bib)
+    # Ohne Rundenkonzept: Zielzeit ergibt sich beim Ergebnis-Abruf aus dem
+    # Mittelwert der Erfassungen – hier keine Neuableitung nötig.
     await session.commit()
     return {"ok": True}
 
@@ -97,14 +89,11 @@ async def delete_timing(
     _user=Depends(require_roles("timing")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Löscht eine einzelne Erfassung und leitet die Runden der Startnummer neu ab."""
+    """Löscht eine einzelne Erfassung."""
     rec = await session.get(TimingRecord, record_id)
     if rec is None:
         raise HTTPException(404, "Datensatz nicht gefunden")
-    event_id, bib = rec.event_id, rec.bib_number
     await session.delete(rec)
-    await session.flush()
-    await services.recompute_laps(session, event_id, bib)
     await session.commit()
     return {"ok": True}
 

@@ -174,7 +174,7 @@ class EventUpdate(BaseModel):
 
 
 class CompetitionCreate(BaseModel):
-    lap_count: int
+    lap_count: int = 1                         # vestigial (Rundenkonzept entfernt)
     title: str | None = None                  # Anzeigename (optional)
     price_cents: int = 0
     price_junior_cents: int | None = None

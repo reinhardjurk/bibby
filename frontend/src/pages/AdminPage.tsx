@@ -91,7 +91,7 @@ function AdminSearch({ canManage, lang }: { canManage: boolean; lang: string }) 
               <tr key={r.id}>
                 <td>{r.bib_number ?? "–"}</td>
                 <td>{r.first_name} {r.last_name}</td>
-                <td>{t("register.laps", { n: r.lap_count })}</td>
+                <td>{r.competition_title?.[lang] || "Lauf"}</td>
                 <td>
                   {canManage && (
                     <button onClick={() => setEditingId(r.id)}>{t("admin.edit")}</button>

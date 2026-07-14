@@ -232,7 +232,7 @@ function RegistrationsList({ eventId, refresh }: { eventId: string; refresh: num
             <tr key={r.id}>
               <td>{r.bib_number ?? "–"}</td>
               <td>{r.first_name} {r.last_name}</td>
-              <td>{r.competition_title?.[lang] || t("register.laps", { n: r.lap_count })}</td>
+              <td>{r.competition_title?.[lang] || "Lauf"}</td>
               <td>{r.finish_seconds == null ? "–" : formatTime(r.finish_seconds)}</td>
               <td>
                 {r.payment_method ? t(`pay.method.${r.payment_method}`) : "–"} ·{" "}
@@ -346,7 +346,6 @@ function CaptureLookup({ eventId, canTiming }: { eventId: string; canTiming: boo
           <thead>
             <tr>
               <th>{t("special.time")}</th>
-              <th>{t("special.lap")}</th>
               <th>{t("special.status")}</th>
               <th></th>
             </tr>
@@ -363,7 +362,6 @@ function CaptureLookup({ eventId, canTiming }: { eventId: string; canTiming: boo
                       onChange={(e) => setETime(e.target.value)}
                     />
                   </td>
-                  <td>{r.lap_index ?? "–"}</td>
                   <td>
                     <select value={eStatus} onChange={(e) => setEStatus(e.target.value)}>
                       <option value="valid">valid</option>
@@ -390,7 +388,6 @@ function CaptureLookup({ eventId, canTiming }: { eventId: string; canTiming: boo
               ) : (
                 <tr key={r.id} className={r.status === "valid" || r.status === "manual" ? "" : "dnf"}>
                   <td>{new Date(r.absolute_time).toLocaleString()}</td>
-                  <td>{r.lap_index ?? "–"}</td>
                   <td>{r.status}</td>
                   <td>
                     {canTiming && (

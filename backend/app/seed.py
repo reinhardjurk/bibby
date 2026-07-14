@@ -182,11 +182,6 @@ async def seed() -> None:
                     )
                 )
         await s.flush()
-
-        # lap_index ableiten
-        for bib in crossings:
-            await services.recompute_laps(s, event2026.id, bib)
-
         await s.commit()
         print("seed: Demo-Daten angelegt (Events 2025/2026, 5 Läufer, Zeiten).")
         print("seed: Verwaltungslinks (Startnummer-PDF testbar):")

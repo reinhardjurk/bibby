@@ -65,8 +65,8 @@ function EventMgmt({ roles, lang }: { roles: string[]; lang: string }) {
   );
 }
 
-type CompRow = { lap_count: string; title: string; price: string; priceJunior: string; startTime: string };
-const emptyComp = (): CompRow => ({ lap_count: "", title: "", price: "", priceJunior: "", startTime: "" });
+type CompRow = { title: string; price: string; priceJunior: string; startTime: string };
+const emptyComp = (): CompRow => ({ title: "", price: "", priceJunior: "", startTime: "" });
 
 function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
   const { t } = useI18n();
@@ -79,14 +79,14 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
   const [cutoff, setCutoff] = useState("");
   const [included, setIncluded] = useState(false);
   const [tshirtText, setTshirtText] = useState("");
-  const [comps, setComps] = useState<CompRow[]>([{ ...emptyComp(), lap_count: "1" }]);
+  const [comps, setComps] = useState<CompRow[]>([emptyComp()]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const setComp = (i: number, patch: Partial<CompRow>) =>
     setComps(comps.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
 
-  const addComp = () => setComps([...comps, { ...emptyComp(), lap_count: "1" }]);
+  const addComp = () => setComps([...comps, emptyComp()]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -105,7 +105,6 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
           ? tshirtText.split("\n").map((s) => s.trim()).filter(Boolean)
           : null,
         competitions: comps.map((c) => ({
-          lap_count: Number(c.lap_count),
           title: c.title || null,
           price_cents: Math.round(Number(c.price || 0) * 100),
           price_junior_cents: c.priceJunior === "" ? null : Math.round(Number(c.priceJunior) * 100),
@@ -117,7 +116,7 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
       setOpen(false);
       setName(""); setYear(""); setDate(""); setDeadline(""); setDefaultStart("");
       setCutoff(""); setIncluded(false); setTshirtText("");
-      setComps([{ ...emptyComp(), lap_count: "1" }]);
+      setComps([emptyComp()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -167,7 +166,6 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
       <table className="results">
         <thead>
           <tr>
-            <th>{t("admin.laps")}</th>
             <th>{t("admin.compTitle")}</th>
             <th>{t("admin.priceAdult")}</th>
             <th>{t("admin.priceJunior")}</th>
@@ -178,7 +176,6 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
         <tbody>
           {comps.map((c, i) => (
             <tr key={i}>
-              <td><input type="number" style={{ width: 60 }} value={c.lap_count} onChange={(e) => setComp(i, { lap_count: e.target.value })} required /></td>
               <td><input value={c.title} onChange={(e) => setComp(i, { title: e.target.value })} required /></td>
               <td><input type="number" step="0.01" style={{ width: 80 }} value={c.price} onChange={(e) => setComp(i, { price: e.target.value })} /></td>
               <td><input type="number" step="0.01" style={{ width: 80 }} placeholder="–" value={c.priceJunior} onChange={(e) => setComp(i, { priceJunior: e.target.value })} /></td>

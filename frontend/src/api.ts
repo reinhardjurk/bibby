@@ -172,7 +172,6 @@ export type EventCreatePayload = {
   tshirt_included: boolean;
   tshirt_options?: string[] | null;
   competitions: {
-    lap_count: number;
     title?: string | null;
     price_cents: number;
     price_junior_cents?: number | null;
