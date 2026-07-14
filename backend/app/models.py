@@ -84,6 +84,11 @@ class Competition(Base):
     price_cents: Mapped[int] = mapped_column(Integer, default=0)
     price_junior_cents: Mapped[int | None] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
+    # Wertungs-Konfiguration je Strecke:
+    #   age_class_scheme: 'five' (5-Jahres) | 'one' (Einjahres) | 'none' (keine AK)
+    #   gender_scoring:   getrennte Wertung je Geschlecht ja/nein
+    age_class_scheme: Mapped[str] = mapped_column(String, default="five")
+    gender_scoring: Mapped[bool] = mapped_column(Boolean, default=True)
 
     event: Mapped[Event] = relationship(back_populates="competitions")
 

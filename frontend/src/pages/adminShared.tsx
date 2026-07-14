@@ -417,6 +417,8 @@ export function CompetitionSettings({ eventId, lang }: { eventId: string; lang: 
             <th>{t("admin.startTime")}</th>
             <th>{t("admin.priceAdult")}</th>
             <th>{t("admin.priceJunior")}</th>
+            <th>{t("admin.ageClasses")}</th>
+            <th>{t("admin.genderScoring")}</th>
             <th></th>
           </tr>
         </thead>
@@ -445,8 +447,10 @@ function CompetitionRow({
   const [priceJunior, setPriceJunior] = useState(
     comp.price_junior_cents != null ? (comp.price_junior_cents / 100).toFixed(2) : ""
   );
+  const [scheme, setScheme] = useState(comp.age_class_scheme);
+  const [genderScoring, setGenderScoring] = useState(comp.gender_scoring);
   const [saved, setSaved] = useState(false);
-  const label = comp.title_i18n?.[lang] || t("register.laps", { n: comp.lap_count });
+  const label = comp.title_i18n?.[lang] || "Lauf";
   const touch = () => setSaved(false);
 
   const save = async () => {
@@ -454,6 +458,8 @@ function CompetitionRow({
       start_time: value ? new Date(value).toISOString() : null,
       price_cents: Math.round(Number(priceAdult) * 100),
       price_junior_cents: priceJunior === "" ? null : Math.round(Number(priceJunior) * 100),
+      age_class_scheme: scheme,
+      gender_scoring: genderScoring,
     });
     setSaved(true);
     onSaved();
@@ -493,6 +499,29 @@ function CompetitionRow({
           value={priceJunior}
           onChange={(e) => {
             setPriceJunior(e.target.value);
+            touch();
+          }}
+        />
+      </td>
+      <td>
+        <select
+          value={scheme}
+          onChange={(e) => {
+            setScheme(e.target.value);
+            touch();
+          }}
+        >
+          <option value="five">{t("admin.ak5")}</option>
+          <option value="one">{t("admin.ak1")}</option>
+          <option value="none">{t("admin.akNone")}</option>
+        </select>
+      </td>
+      <td style={{ textAlign: "center" }}>
+        <input
+          type="checkbox"
+          checked={genderScoring}
+          onChange={(e) => {
+            setGenderScoring(e.target.checked);
             touch();
           }}
         />

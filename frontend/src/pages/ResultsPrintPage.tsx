@@ -44,8 +44,6 @@ function ResultsPrintDashboard() {
   const { events, eventId, setEventId } = useEventSelector();
   const [comps, setComps] = useState<CompetitionDto[]>([]);
   const [competitionId, setCompetitionId] = useState("");
-  const [scheme, setScheme] = useState("five");
-  const [gender, setGender] = useState(""); // "" = alle
 
   useEffect(() => {
     if (!eventId) {
@@ -65,53 +63,28 @@ function ResultsPrintDashboard() {
     <>
       <EventSelect events={events} eventId={eventId} onChange={setEventId} />
 
-      {eventId && <SingleCertificate eventId={eventId} scheme={scheme} />}
+      {eventId && <SingleCertificate eventId={eventId} />}
 
       {eventId && (
         <>
           <h3>{t("resultsprint.bundles")}</h3>
           <p className="hint">{t("resultsprint.bundlesHint")}</p>
-          <div className="row">
-            <label>
-              {t("admin.race")}
-              <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
-                {comps.map((c) => (
-                  <option key={c.id} value={c.id}>{compLabel(c)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("resultsprint.scheme")}
-              <select value={scheme} onChange={(e) => setScheme(e.target.value)}>
-                <option value="five">{t("resultsprint.scheme5")}</option>
-                <option value="one">{t("resultsprint.scheme1")}</option>
-              </select>
-            </label>
-            <label>
-              {t("resultsprint.gender")}
-              <select value={gender} onChange={(e) => setGender(e.target.value)}>
-                <option value="">{t("resultsprint.genderAll")}</option>
-                <option value="m">{t("register.gender.m")}</option>
-                <option value="f">{t("register.gender.f")}</option>
-                <option value="x">{t("register.gender.x")}</option>
-              </select>
-            </label>
-          </div>
-          {competitionId && (
-            <BundleList
-              eventId={eventId}
-              competitionId={competitionId}
-              scheme={scheme}
-              gender={gender}
-            />
-          )}
+          <label>
+            {t("admin.race")}
+            <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
+              {comps.map((c) => (
+                <option key={c.id} value={c.id}>{compLabel(c)}</option>
+              ))}
+            </select>
+          </label>
+          {competitionId && <BundleList eventId={eventId} competitionId={competitionId} />}
         </>
       )}
     </>
   );
 }
 
-function SingleCertificate({ eventId, scheme }: { eventId: string; scheme: string }) {
+function SingleCertificate({ eventId }: { eventId: string }) {
   const { t, lang } = useI18n();
   const [bib, setBib] = useState("");
   const [busy, setBusy] = useState(false);
@@ -122,7 +95,7 @@ function SingleCertificate({ eventId, scheme }: { eventId: string; scheme: strin
     setBusy(true);
     setError("");
     try {
-      const { blob, filename } = await downloadCertificateByBib(eventId, Number(bib), scheme, lang);
+      const { blob, filename } = await downloadCertificateByBib(eventId, Number(bib), lang);
       triggerDownload(blob, filename);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common.error"));
@@ -150,18 +123,8 @@ function SingleCertificate({ eventId, scheme }: { eventId: string; scheme: strin
   );
 }
 
-function BundleList({
-  eventId,
-  competitionId,
-  scheme,
-  gender,
-}: {
-  eventId: string;
-  competitionId: string;
-  scheme: string;
-  gender: string;
-}) {
-  const { t, lang } = useI18n();
+function BundleList({ eventId, competitionId }: { eventId: string; competitionId: string }) {
+  const { t } = useI18n();
   const [groups, setGroups] = useState<CertificateGroup[] | null>(null);
   const [busyKey, setBusyKey] = useState("");
   const [error, setError] = useState("");
@@ -170,13 +133,21 @@ function BundleList({
     setGroups(null);
     setError("");
     adminApi
-      .certificateGroups(eventId, competitionId, scheme, gender)
+      .certificateGroups(eventId, competitionId)
       .then(setGroups)
       .catch((e) => setError(e instanceof Error ? e.message : t("common.error")));
-  }, [eventId, competitionId, scheme, gender]);
+  }, [eventId, competitionId]);
+
+  const genderWord = (g: string | null) =>
+    g ? t(`register.gender.${g === "m" ? "m" : g === "f" ? "f" : "x"}`) : "";
+
+  const groupLabel = (g: CertificateGroup) => {
+    const parts = [g.age_class, genderWord(g.gender)].filter(Boolean);
+    return parts.length ? parts.join(" · ") : t("resultsprint.overall");
+  };
 
   const download = async (g: CertificateGroup) => {
-    const key = g.age_class ?? "";
+    const key = `${g.age_class ?? ""}|${g.gender ?? ""}`;
     setBusyKey(key);
     setError("");
     try {
@@ -184,9 +155,8 @@ function BundleList({
         eventId,
         competitionId,
         g.age_class,
-        scheme,
-        gender,
-        lang
+        g.gender,
+        "de"
       );
       triggerDownload(blob, filename);
     } catch (e) {
@@ -204,17 +174,17 @@ function BundleList({
         <table className="results">
           <thead>
             <tr>
-              <th>{t("resultsprint.ageClass")}</th>
+              <th>{t("resultsprint.group")}</th>
               <th>{t("resultsprint.count")}</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {groups.map((g) => {
-              const key = g.age_class ?? "";
+              const key = `${g.age_class ?? ""}|${g.gender ?? ""}`;
               return (
                 <tr key={key}>
-                  <td>{g.age_class ?? "–"}</td>
+                  <td>{groupLabel(g)}</td>
                   <td>{g.count}</td>
                   <td>
                     <button

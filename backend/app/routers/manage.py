@@ -136,7 +136,9 @@ async def certificate_pdf(
     bib_text: str | None = None
     if reg.bib is not None:
         placement = await services.result_placement(session, competition, reg.bib.bib_number)
-        extra_lines = services.certificate_lines(placement, reg.language)
+        extra_lines = services.certificate_lines(
+            placement, reg.language, gender_scoring=competition.gender_scoring
+        )
         bib_text = services.certificate_bib_text(reg.bib.bib_number, reg.language)
 
     pdf = services.render_certificate_pdf(

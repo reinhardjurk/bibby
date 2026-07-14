@@ -65,8 +65,22 @@ function EventMgmt({ roles, lang }: { roles: string[]; lang: string }) {
   );
 }
 
-type CompRow = { title: string; price: string; priceJunior: string; startTime: string };
-const emptyComp = (): CompRow => ({ title: "", price: "", priceJunior: "", startTime: "" });
+type CompRow = {
+  title: string;
+  price: string;
+  priceJunior: string;
+  startTime: string;
+  scheme: string;
+  genderScoring: boolean;
+};
+const emptyComp = (): CompRow => ({
+  title: "",
+  price: "",
+  priceJunior: "",
+  startTime: "",
+  scheme: "five",
+  genderScoring: true,
+});
 
 function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
   const { t } = useI18n();
@@ -109,6 +123,8 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
           price_cents: Math.round(Number(c.price || 0) * 100),
           price_junior_cents: c.priceJunior === "" ? null : Math.round(Number(c.priceJunior) * 100),
           start_time: c.startTime ? new Date(c.startTime).toISOString() : null,
+          age_class_scheme: c.scheme,
+          gender_scoring: c.genderScoring,
         })),
       };
       const res = await adminApi.createEvent(body);
@@ -170,6 +186,8 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
             <th>{t("admin.priceAdult")}</th>
             <th>{t("admin.priceJunior")}</th>
             <th>{t("admin.startTime")}</th>
+            <th>{t("admin.ageClasses")}</th>
+            <th>{t("admin.genderScoring")}</th>
             <th></th>
           </tr>
         </thead>
@@ -180,6 +198,20 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
               <td><input type="number" step="0.01" style={{ width: 80 }} value={c.price} onChange={(e) => setComp(i, { price: e.target.value })} /></td>
               <td><input type="number" step="0.01" style={{ width: 80 }} placeholder="–" value={c.priceJunior} onChange={(e) => setComp(i, { priceJunior: e.target.value })} /></td>
               <td><input type="datetime-local" value={c.startTime} onChange={(e) => setComp(i, { startTime: e.target.value })} /></td>
+              <td>
+                <select value={c.scheme} onChange={(e) => setComp(i, { scheme: e.target.value })}>
+                  <option value="five">{t("admin.ak5")}</option>
+                  <option value="one">{t("admin.ak1")}</option>
+                  <option value="none">{t("admin.akNone")}</option>
+                </select>
+              </td>
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={c.genderScoring}
+                  onChange={(e) => setComp(i, { genderScoring: e.target.checked })}
+                />
+              </td>
               <td>
                 {comps.length > 1 && (
                   <button type="button" onClick={() => setComps(comps.filter((_, idx) => idx !== i))}>

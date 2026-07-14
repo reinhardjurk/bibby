@@ -142,7 +142,7 @@ async def resolve_category(
     """Altersklasse aus dem Alter am Veranstaltungstag (Jahr − Geburtsjahr).
     Berechnet nach compute_age_class; die Category-Tabelle wird nicht mehr
     benötigt (session-Parameter bleibt aus Signaturgründen erhalten)."""
-    if participant.birth_date is None:
+    if scheme == "none" or participant.birth_date is None:
         return None
     age = event.event_date.year - participant.birth_date.year
     return compute_age_class(age, scheme)
@@ -195,7 +195,6 @@ async def build_results(
     competition: Competition,
     *,
     only_published: bool = True,
-    scheme: str = "five",
 ) -> list[ResultRow]:
     """Ergebnisliste eines Wettbewerbs.
 
@@ -233,7 +232,9 @@ async def build_results(
                 first_name=participant.first_name,
                 last_name=participant.last_name,
                 gender=participant.gender,
-                category_code=await resolve_category(session, event, participant, scheme),
+                category_code=await resolve_category(
+                    session, event, participant, competition.age_class_scheme
+                ),
                 team=reg.team,
                 finish_seconds=finish_seconds,
                 splits=[],
@@ -292,8 +293,12 @@ async def result_placement(
     return placement_from_rows(rows, bib_number)
 
 
-def certificate_lines(placement: dict | None, lang: str = "de") -> list[str]:
-    """Die vier Platzierungszeilen für die Urkunde (lokalisiert de/en)."""
+def certificate_lines(
+    placement: dict | None, lang: str = "de", *, gender_scoring: bool = True
+) -> list[str]:
+    """Platzierungszeilen für die Urkunde je nach Strecken-Wertung: Gesamt immer;
+    Geschlechtswertung nur bei gender_scoring; Altersklasse nur, wenn eine
+    zugeordnet ist (class_code gesetzt = Schema != 'none')."""
     if not placement:
         return []
     en = lang == "en"
@@ -307,16 +312,18 @@ def certificate_lines(placement: dict | None, lang: str = "de") -> list[str]:
     of = "of" if en else "von"
     overall = "Overall rank" if en else "Platz gesamt"
     ak = "Age group" if en else "Altersklasse"
-    lines = [
-        f"{overall}: {placement['overall_rank']} {of} {placement['overall_total']}",
-        f"{overall} ({g}): {placement['gender_rank']} {of} {placement['gender_total']}",
-    ]
+    lines = [f"{overall}: {placement['overall_rank']} {of} {placement['overall_total']}"]
+    if gender_scoring:
+        lines.append(
+            f"{overall} ({g}): {placement['gender_rank']} {of} {placement['gender_total']}"
+        )
     if code:
         lines.append(f"{ak} {code}: {placement['class_rank']} {of} {placement['class_total']}")
-        lines.append(
-            f"{ak} {code} ({g}): "
-            f"{placement['class_gender_rank']} {of} {placement['class_gender_total']}"
-        )
+        if gender_scoring:
+            lines.append(
+                f"{ak} {code} ({g}): "
+                f"{placement['class_gender_rank']} {of} {placement['class_gender_total']}"
+            )
     return lines
 
 

@@ -35,6 +35,8 @@ export type CompetitionDto = {
   price_junior_cents: number | null;
   currency: string;
   start_time: string | null;
+  age_class_scheme: string;
+  gender_scoring: boolean;
 };
 
 export type TimingPing = { bib_number: number; absolute_time: string; dedup_key: string };
@@ -177,6 +179,8 @@ export type EventCreatePayload = {
     price_cents: number;
     price_junior_cents?: number | null;
     start_time?: string | null;
+    age_class_scheme?: string;
+    gender_scoring?: boolean;
   }[];
 };
 
@@ -262,7 +266,13 @@ export const adminApi = {
     adminReq<ResultList>(`/admin/events/${eventId}/results?competition_id=${competitionId}`),
   updateCompetition: (
     id: string,
-    body: { start_time?: string | null; price_cents?: number; price_junior_cents?: number | null }
+    body: {
+      start_time?: string | null;
+      price_cents?: number;
+      price_junior_cents?: number | null;
+      age_class_scheme?: string;
+      gender_scoring?: boolean;
+    }
   ) =>
     adminReq<{ id: string; price_cents: number; price_junior_cents: number | null }>(
       `/admin/competitions/${id}`,
@@ -302,10 +312,9 @@ export const adminApi = {
       body: JSON.stringify({ absolute_time: absoluteTime }),
     }),
   version: () => req<VersionInfo>("/version"),
-  certificateGroups: (eventId: string, competitionId: string, scheme: string, gender: string) =>
+  certificateGroups: (eventId: string, competitionId: string) =>
     adminReq<CertificateGroup[]>(
-      `/admin/events/${eventId}/competitions/${competitionId}/certificate-groups` +
-        `?scheme=${scheme}&gender=${encodeURIComponent(gender)}`
+      `/admin/events/${eventId}/competitions/${competitionId}/certificate-groups`
     ),
   getMailSettings: () => adminReq<MailSettings>("/admin/mail-settings"),
   setMailMode: (testMode: boolean) =>
@@ -323,7 +332,11 @@ export type MailSettings = {
 
 export type VersionInfo = { backend: string; db_schema: string | null };
 
-export type CertificateGroup = { age_class: string | null; count: number };
+export type CertificateGroup = {
+  age_class: string | null;
+  gender: string | null;
+  count: number;
+};
 
 /** SEPA-Lastschriften als CSV (mit Auth-Header) laden – gibt Blob + Dateiname. */
 export async function downloadSepaExport(
@@ -363,14 +376,12 @@ export function downloadCertificateBundle(
   eventId: string,
   competitionId: string,
   ageClass: string | null,
-  scheme: string,
-  gender: string,
+  gender: string | null,
   lang: string
 ): Promise<{ blob: Blob; filename: string }> {
   const q = new URLSearchParams({
     age_class: ageClass ?? "",
-    scheme,
-    gender,
+    gender: gender ?? "",
     lang,
   }).toString();
   return authedBlob(
@@ -382,10 +393,9 @@ export function downloadCertificateBundle(
 export function downloadCertificateByBib(
   eventId: string,
   bib: number,
-  scheme: string,
   lang: string
 ): Promise<{ blob: Blob; filename: string }> {
-  const q = new URLSearchParams({ bib: String(bib), scheme, lang }).toString();
+  const q = new URLSearchParams({ bib: String(bib), lang }).toString();
   return authedBlob(`${BASE}/admin/events/${eventId}/certificate?${q}`);
 }
 

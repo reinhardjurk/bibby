@@ -158,27 +158,24 @@ def _ak_sort_key(code: str | None) -> tuple:
 async def certificate_groups(
     event_id: uuid.UUID,
     competition_id: uuid.UUID,
-    scheme: str = "five",  # "five" = 5-Jahres-, "one" = Einjahres-Altersklassen
-    gender: str = "",      # "" = alle, sonst "f"/"m"/"x"
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
-    """Altersklassen (nach Schema, für ein Geschlecht) mit Finisher-Anzahl."""
+    """Wertungsgruppen der Strecke: je nach Konfiguration nach Altersklasse
+    (Schema der Strecke) und/oder Geschlecht, mit Finisher-Anzahl."""
     comp = await session.get(Competition, competition_id)
     if comp is None or comp.event_id != event_id:
         raise HTTPException(404, "Strecke gehört nicht zu diesem Event")
-    target_gender = gender or None
-    rows = await services.build_results(session, comp, only_published=False, scheme=scheme)
-    by_class: dict[str | None, int] = {}
+    rows = await services.build_results(session, comp, only_published=False)
+    groups: dict[tuple[str | None, str | None], int] = {}
     for r in rows:
         if r.finish_seconds is None:
             continue
-        if target_gender and r.gender != target_gender:
-            continue
-        by_class[r.category_code] = by_class.get(r.category_code, 0) + 1
+        key = (r.category_code, r.gender if comp.gender_scoring else None)
+        groups[key] = groups.get(key, 0) + 1
     return [
-        {"age_class": code, "count": by_class[code]}
-        for code in sorted(by_class, key=_ak_sort_key)
+        {"age_class": ak, "gender": g, "count": groups[(ak, g)]}
+        for (ak, g) in sorted(groups, key=lambda k: (_ak_sort_key(k[0]), k[1] or ""))
     ]
 
 
@@ -201,20 +198,20 @@ async def certificate_bundle(
     event_id: uuid.UUID,
     competition_id: uuid.UUID,
     age_class: str = "",
-    scheme: str = "five",
     gender: str = "",
     lang: str = "de",
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    """Sammel-PDF der Urkunden einer Kombination (Lauf × Altersklasse × Geschlecht)."""
+    """Sammel-PDF der Urkunden einer Wertungsgruppe (Altersklasse × Geschlecht,
+    je nach Strecken-Konfiguration)."""
     comp = await session.get(Competition, competition_id)
     if comp is None or comp.event_id != event_id:
         raise HTTPException(404, "Strecke gehört nicht zu diesem Event")
     event = await session.get(Event, event_id)
     target = age_class or None
     target_gender = gender or None
-    rows = await services.build_results(session, comp, only_published=False, scheme=scheme)
+    rows = await services.build_results(session, comp, only_published=False)
     certs = [
         {
             "first_name": r.first_name,
@@ -222,7 +219,11 @@ async def certificate_bundle(
             "time_text": services.format_duration(r.finish_seconds),
             "bib_text": services.certificate_bib_text(r.bib_number, lang),
             "team": r.team,
-            "extra_lines": services.certificate_lines(services.placement_from_rows(rows, r.bib_number), lang),
+            "extra_lines": services.certificate_lines(
+                services.placement_from_rows(rows, r.bib_number),
+                lang,
+                gender_scoring=comp.gender_scoring,
+            ),
         }
         for r in rows
         if r.finish_seconds is not None
@@ -240,7 +241,6 @@ async def certificate_bundle(
 async def certificate_by_bib(
     event_id: uuid.UUID,
     bib: int,
-    scheme: str = "five",
     lang: str = "de",
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
@@ -258,7 +258,7 @@ async def certificate_by_bib(
     reg = await session.get(Registration, ba.registration_id)
     comp = await session.get(Competition, reg.competition_id)
     event = await session.get(Event, event_id)
-    rows = await services.build_results(session, comp, only_published=False, scheme=scheme)
+    rows = await services.build_results(session, comp, only_published=False)
     me = next((r for r in rows if r.bib_number == bib), None)
     if me is None or me.finish_seconds is None:
         raise HTTPException(409, "Für diese Startnummer liegt noch keine Zeit vor")
@@ -268,7 +268,9 @@ async def certificate_by_bib(
         "time_text": services.format_duration(me.finish_seconds),
         "bib_text": services.certificate_bib_text(bib, lang),
         "team": me.team,
-        "extra_lines": services.certificate_lines(services.placement_from_rows(rows, bib), lang),
+        "extra_lines": services.certificate_lines(
+            services.placement_from_rows(rows, bib), lang, gender_scoring=comp.gender_scoring
+        ),
     }
     return await _certificate_response([cert], event, f"urkunde-{bib}.pdf")
 
@@ -720,6 +722,10 @@ async def update_competition(
         comp.price_cents = body.price_cents
     if "price_junior_cents" in body.model_fields_set:
         comp.price_junior_cents = body.price_junior_cents
+    if body.age_class_scheme is not None:
+        comp.age_class_scheme = body.age_class_scheme
+    if body.gender_scoring is not None:
+        comp.gender_scoring = body.gender_scoring
     await session.commit()
     return {
         "id": str(comp.id),
@@ -771,6 +777,8 @@ async def create_event(
                 price_cents=c.price_cents,
                 price_junior_cents=c.price_junior_cents,
                 currency=c.currency,
+                age_class_scheme=c.age_class_scheme,
+                gender_scoring=c.gender_scoring,
             )
         )
     await session.commit()
