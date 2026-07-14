@@ -253,8 +253,14 @@ async def certificate_all(
     event = await session.get(Event, event_id)
     rows = await services.build_results(session, comp, only_published=False)
     finishers = [r for r in rows if r.finish_seconds is not None]
+    # Sortierung: Altersklasse aufsteigend, dann (nur bei Geschlechtswertung) nach
+    # Geschlecht, und innerhalb der Gruppe aufsteigend nach Zeit (= Platzierung).
     finishers.sort(
-        key=lambda r: (_ak_sort_key(r.category_code), r.gender or "", r.finish_seconds or 0.0)
+        key=lambda r: (
+            _ak_sort_key(r.category_code),
+            (r.gender or "") if comp.gender_scoring else "",
+            r.finish_seconds or 0.0,
+        )
     )
     if not finishers:
         raise HTTPException(404, "Keine Urkunden (keine Zeiten vorhanden)")
