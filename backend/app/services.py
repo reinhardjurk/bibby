@@ -228,6 +228,7 @@ async def build_results(
                 last_name=participant.last_name,
                 gender=participant.gender,
                 category_code=await resolve_category(session, event, participant),
+                team=reg.team,
                 finish_seconds=finish_seconds,
                 splits=[],
                 participation_count=await participation_count(session, participant.id),
@@ -529,10 +530,13 @@ def render_certificates_pdf(
         bib_html = (
             f'<div class="bib">{escape(cert["bib_text"])}</div>' if cert.get("bib_text") else ""
         )
+        team_html = (
+            f'<div class="team">{escape(cert["team"])}</div>' if cert.get("team") else ""
+        )
         return (
             '<div class="page"><div class="content">'
             f'<div class="name">{escape(cert["first_name"])} {escape(cert["last_name"])}</div>'
-            f"{bib_html}"
+            f"{bib_html}{team_html}"
             f'<div class="time">{escape(cert["time_text"])}</div>'
             f"{lines}</div></div>"
         )
@@ -551,6 +555,8 @@ def render_certificates_pdf(
                font-weight: 700; color: #1c2430; }}
       .bib {{ font-family: Helvetica, Arial, sans-serif; font-size: 20pt;
               margin-top: 4mm; color: #1c2430; }}
+      .team {{ font-family: Helvetica, Arial, sans-serif; font-size: 18pt;
+               margin-top: 2mm; color: #1c2430; }}
       .time {{ font-family: Helvetica, Arial, sans-serif; font-size: 26pt;
                margin-top: 8mm; color: #2f6df0; }}
       .line {{ font-family: Helvetica, Arial, sans-serif; font-size: 18pt;
@@ -571,6 +577,7 @@ def render_certificate_pdf(
     last_name: str,
     time_text: str,
     bib_text: str | None = None,
+    team: str | None = None,
     extra_lines: list[str] | None = None,
     background: bytes | None = None,
     background_mime: str | None = None,
@@ -584,6 +591,7 @@ def render_certificate_pdf(
                 "last_name": last_name,
                 "time_text": time_text,
                 "bib_text": bib_text,
+                "team": team,
                 "extra_lines": extra_lines or [],
             }
         ],

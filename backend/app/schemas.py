@@ -116,6 +116,7 @@ class ResultRow(BaseModel):
     last_name: str
     gender: str
     category_code: str | None
+    team: str | None = None
     finish_seconds: float | None  # None = DNF (Zielrunde nicht erreicht)
     splits: list[LapSplit]
     participation_count: int  # jahresübergreifend, inkl. diesem Event

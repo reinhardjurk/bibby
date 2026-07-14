@@ -144,6 +144,7 @@ async def certificate_pdf(
         last_name=participant.last_name,
         time_text=services.format_duration(reg.finish_seconds),
         bib_text=bib_text,
+        team=reg.team,
         extra_lines=extra_lines,
         background=event.certificate_bg,
         background_mime=event.certificate_bg_mime,
