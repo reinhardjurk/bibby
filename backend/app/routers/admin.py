@@ -237,6 +237,46 @@ async def certificate_bundle(
     return await _certificate_response(certs, event, f"urkunden-{label}-{suffix}.pdf")
 
 
+@router.get("/events/{event_id}/competitions/{competition_id}/certificates-all")
+async def certificate_all(
+    event_id: uuid.UUID,
+    competition_id: uuid.UUID,
+    lang: str = "de",
+    _user=Depends(require_roles(*_RESULT_ROLES)),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Alle Urkunden des Laufs in einem PDF, sortiert nach Altersklasse
+    (aufsteigend) und Geschlecht (innerhalb der Gruppe nach Zeit)."""
+    comp = await session.get(Competition, competition_id)
+    if comp is None or comp.event_id != event_id:
+        raise HTTPException(404, "Strecke gehört nicht zu diesem Event")
+    event = await session.get(Event, event_id)
+    rows = await services.build_results(session, comp, only_published=False)
+    finishers = [r for r in rows if r.finish_seconds is not None]
+    finishers.sort(
+        key=lambda r: (_ak_sort_key(r.category_code), r.gender or "", r.finish_seconds or 0.0)
+    )
+    if not finishers:
+        raise HTTPException(404, "Keine Urkunden (keine Zeiten vorhanden)")
+    certs = [
+        {
+            "first_name": r.first_name,
+            "last_name": r.last_name,
+            "time_text": services.format_duration(r.finish_seconds),
+            "bib_text": services.certificate_bib_text(r.bib_number, lang),
+            "team": r.team,
+            "extra_lines": services.certificate_lines(
+                services.placement_from_rows(rows, r.bib_number),
+                lang,
+                gender_scoring=comp.gender_scoring,
+            ),
+        }
+        for r in finishers
+    ]
+    label = (comp.title_i18n or {}).get(lang) or (comp.title_i18n or {}).get("de") or "lauf"
+    return await _certificate_response(certs, event, f"urkunden-{label}-alle.pdf")
+
+
 @router.get("/events/{event_id}/certificate")
 async def certificate_by_bib(
     event_id: uuid.UUID,

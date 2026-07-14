@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   adminApi,
   api,
+  downloadAllCertificates,
   downloadCertificateBundle,
   downloadCertificateByBib,
   type CertificateGroup,
@@ -69,18 +70,49 @@ function ResultsPrintDashboard() {
         <>
           <h3>{t("resultsprint.bundles")}</h3>
           <p className="hint">{t("resultsprint.bundlesHint")}</p>
-          <label>
-            {t("admin.race")}
-            <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
-              {comps.map((c) => (
-                <option key={c.id} value={c.id}>{compLabel(c)}</option>
-              ))}
-            </select>
-          </label>
+          <div className="row">
+            <label>
+              {t("admin.race")}
+              <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
+                {comps.map((c) => (
+                  <option key={c.id} value={c.id}>{compLabel(c)}</option>
+                ))}
+              </select>
+            </label>
+            {competitionId && <PrintAllButton eventId={eventId} competitionId={competitionId} />}
+          </div>
           {competitionId && <BundleList eventId={eventId} competitionId={competitionId} />}
         </>
       )}
     </>
+  );
+}
+
+function PrintAllButton({ eventId, competitionId }: { eventId: string; competitionId: string }) {
+  const { t, lang } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const { blob, filename } = await downloadAllCertificates(eventId, competitionId, lang);
+      triggerDownload(blob, filename);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <span style={{ alignSelf: "flex-end" }}>
+      <button className="primary" onClick={run} disabled={busy}>
+        {busy ? t("common.loading") : t("resultsprint.printAll")}
+      </button>
+      {error && <p className="error">{error}</p>}
+    </span>
   );
 }
 

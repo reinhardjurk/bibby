@@ -389,6 +389,18 @@ export function downloadCertificateBundle(
   );
 }
 
+/** Alle Urkunden eines Laufs in einem PDF (sortiert nach Altersklasse + Geschlecht). */
+export function downloadAllCertificates(
+  eventId: string,
+  competitionId: string,
+  lang: string
+): Promise<{ blob: Blob; filename: string }> {
+  const q = new URLSearchParams({ lang }).toString();
+  return authedBlob(
+    `${BASE}/admin/events/${eventId}/competitions/${competitionId}/certificates-all?${q}`
+  );
+}
+
 /** Einzelne Urkunde für eine Startnummer. */
 export function downloadCertificateByBib(
   eventId: string,
