@@ -187,4 +187,23 @@ table.results tr.dnf { color: var(--muted); }
   cursor: pointer;
 }
 table.results select, table.results input { padding: 4px 6px; font-size: 0.9rem; }
-code { background: var(--badge); padding: 2px 6px; border-radius: 4px; }
+code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+
+/* --- Mobil: Formularzeilen stapeln, kompaktere Abstände, Tabellen scrollen --- */
+@media (max-width: 640px) {
+  .app { padding: 0 10px 40px; }
+  header { flex-wrap: wrap; gap: 10px 16px; padding: 12px 0; }
+  header nav { flex-wrap: wrap; gap: 10px 14px; flex-basis: 100%; order: 3; }
+  .card { padding: 16px; border-radius: 10px; }
+
+  /* mehrspaltige Formularzeilen werden untereinander gestapelt */
+  .row { flex-direction: column; gap: 14px; }
+  .row > label { flex: none; width: 100%; }
+
+  /* breite Tabellen (Anmeldungen, Strecken) horizontal scrollbar statt umbrechen */
+  table.results { display: block; overflow-x: auto; white-space: nowrap; }
+
+  /* Aktions-/Speichern-Buttons füllen die Breite -> leichter zu treffen */
+  button.primary { align-self: stretch; width: 100%; }
+  .admin-head { flex-wrap: wrap; }
+}
