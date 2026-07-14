@@ -45,7 +45,13 @@ from ..schemas import (
     SessionToken,
 )
 from ..passwords import verify_password
-from ..security import generate_token, hash_token, require_roles, user_roles
+from ..security import (
+    generate_device_code,
+    generate_token,
+    hash_token,
+    require_roles,
+    user_roles,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -851,7 +857,7 @@ async def list_device_tokens(
         DeviceTokenOut(
             id=t.id,
             label=t.label,
-            token=None,  # Klartext gibt es nur bei der Erstellung
+            token=t.token_plain,  # dauerhaft sichtbar (kann für Altdaten None sein)
             time_offset_seconds=t.time_offset_seconds,
             active=t.active,
         )
@@ -866,11 +872,22 @@ async def create_device_token(
     _user=Depends(require_roles("timing")),
     session: AsyncSession = Depends(get_session),
 ) -> DeviceTokenOut:
-    raw = generate_token()
+    # Kurzer, menschenlesbarer Code; bei (sehr seltener) Kollision neu würfeln.
+    raw = generate_device_code()
+    for _ in range(10):
+        clash = (
+            await session.execute(
+                select(DeviceToken.id).where(DeviceToken.token_hash == hash_token(raw))
+            )
+        ).scalar_one_or_none()
+        if clash is None:
+            break
+        raw = generate_device_code()
     token = DeviceToken(
         event_id=event_id,
         label=body.label,
         token_hash=hash_token(raw),
+        token_plain=raw,
         time_offset_seconds=body.time_offset_seconds,
     )
     session.add(token)
@@ -878,7 +895,7 @@ async def create_device_token(
     return DeviceTokenOut(
         id=token.id,
         label=token.label,
-        token=raw,  # Klartext nur jetzt
+        token=raw,
         time_offset_seconds=token.time_offset_seconds,
         active=token.active,
     )

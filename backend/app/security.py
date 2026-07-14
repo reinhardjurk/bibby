@@ -28,6 +28,27 @@ def hash_token(raw: str) -> str:
     return hmac.new(settings.secret_key.encode(), raw.encode(), hashlib.sha256).hexdigest()
 
 
+# Menschenlesbare Geräte-Codes: Adjektiv-Nomen-Zahl, z. B. "blau-tiger-42".
+_CODE_ADJ = [
+    "blau", "rot", "gruen", "gelb", "schnell", "leise", "hell", "dunkel", "warm", "kuehl",
+    "froh", "wild", "sanft", "klar", "frisch", "weit", "hoch", "tief", "stark", "ruhig",
+    "flink", "mutig", "golden", "silber", "gruen", "bunt", "leicht", "kuehn", "edel", "wach",
+]
+_CODE_NOUN = [
+    "tiger", "adler", "fuchs", "hirsch", "wolf", "baer", "falke", "otter", "luchs", "biber",
+    "reh", "dachs", "igel", "kranich", "storch", "moewe", "robbe", "delfin", "hai", "wal",
+    "berg", "fluss", "see", "wald", "stein", "mond", "stern", "wolke", "blitz", "sturm",
+    "pfeil", "komet", "insel", "duene", "koralle", "anker", "segel", "welle", "gipfel", "tal",
+]
+
+
+def generate_device_code() -> str:
+    """Kurzer, menschenlesbarer Geräte-Code (Adjektiv-Nomen-Zahl)."""
+    return (
+        f"{secrets.choice(_CODE_ADJ)}-{secrets.choice(_CODE_NOUN)}-{secrets.randbelow(90) + 10}"
+    )
+
+
 # --- Geräte-Token (Zeitnahme-Ingestion) -----------------------------------
 async def require_device_token(
     authorization: str = Header(...),

@@ -84,6 +84,7 @@ const translations: Record<Lang, Dict> = {
     "admin.offset": "Offset (s)",
     "admin.create": "Erstellen",
     "admin.revoke": "Sperren",
+    "admin.tokenRevoked": "gesperrt",
     "admin.tokenCreated": "Token erstellt (nur jetzt sichtbar)",
     "admin.tokenScan": "Mit dem Smartphone scannen, um die Zeiterfassung direkt zu öffnen.",
 
@@ -280,6 +281,7 @@ const translations: Record<Lang, Dict> = {
     "admin.offset": "Offset (s)",
     "admin.create": "Create",
     "admin.revoke": "Revoke",
+    "admin.tokenRevoked": "revoked",
     "admin.tokenCreated": "Token created (visible only now)",
     "admin.tokenScan": "Scan with a smartphone to open timing directly.",
 

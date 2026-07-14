@@ -564,7 +564,6 @@ export function DeviceTokens({ eventId }: { eventId: string }) {
   const [tokens, setTokens] = useState<DeviceTokenDto[]>([]);
   const [label, setLabel] = useState("");
   const [offset, setOffset] = useState(0);
-  const [created, setCreated] = useState<string | null>(null);
 
   const reload = () => adminApi.listDeviceTokens(eventId).then(setTokens).catch(() => {});
   useEffect(() => {
@@ -572,8 +571,7 @@ export function DeviceTokens({ eventId }: { eventId: string }) {
   }, [eventId]);
 
   const create = async () => {
-    const tok = await adminApi.createDeviceToken(eventId, label, offset);
-    setCreated(tok.token ?? null);
+    await adminApi.createDeviceToken(eventId, label, offset);
     setLabel("");
     setOffset(0);
     reload();
@@ -582,17 +580,6 @@ export function DeviceTokens({ eventId }: { eventId: string }) {
   return (
     <>
       <h3>{t("admin.deviceTokens")}</h3>
-      {created && (
-        <div className="token-created">
-          <p className="success">{t("admin.tokenCreated")}</p>
-          <QRCodeSVG
-            value={`${window.location.origin}/team/zeiterfassung?token=${encodeURIComponent(created)}&event=${eventId}`}
-            size={200}
-          />
-          <p className="hint">{t("admin.tokenScan")}</p>
-          <code>{created}</code>
-        </div>
-      )}
       <div className="row">
         <input placeholder={t("admin.tokenLabel")} value={label} onChange={(e) => setLabel(e.target.value)} />
         <input
@@ -606,23 +593,30 @@ export function DeviceTokens({ eventId }: { eventId: string }) {
           {t("admin.create")}
         </button>
       </div>
-      <table className="results">
-        <tbody>
-          {tokens.map((tok) => (
-            <tr key={tok.id} className={tok.active ? "" : "dnf"}>
-              <td>{tok.label}</td>
-              <td>{tok.time_offset_seconds}s</td>
-              <td>
-                {tok.active && (
-                  <button onClick={() => adminApi.revokeDeviceToken(tok.id).then(reload)}>
-                    {t("admin.revoke")}
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+
+      {tokens.map((tok) => (
+        <div key={tok.id} className={`token-created${tok.active ? "" : " dnf"}`}>
+          <p>
+            <strong>{tok.label}</strong> · {tok.time_offset_seconds}s
+            {!tok.active && ` · ${t("admin.tokenRevoked")}`}
+          </p>
+          {tok.token && <code>{tok.token}</code>}
+          {tok.active && tok.token && (
+            <>
+              <QRCodeSVG
+                value={`${window.location.origin}/team/zeiterfassung?token=${encodeURIComponent(tok.token)}&event=${eventId}`}
+                size={160}
+              />
+              <p className="hint">{t("admin.tokenScan")}</p>
+            </>
+          )}
+          {tok.active && (
+            <button onClick={() => adminApi.revokeDeviceToken(tok.id).then(reload)}>
+              {t("admin.revoke")}
+            </button>
+          )}
+        </div>
+      ))}
     </>
   );
 }

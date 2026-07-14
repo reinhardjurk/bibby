@@ -205,6 +205,9 @@ class DeviceToken(Base):
     event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("event.id", ondelete="CASCADE"))
     label: Mapped[str]
     token_hash: Mapped[str] = mapped_column(String, unique=True)
+    # Menschenlesbarer Klartext-Code – bewusst gespeichert, damit er in der
+    # Geräteverwaltung dauerhaft sichtbar bleibt (kein reines Einmal-Secret).
+    token_plain: Mapped[str | None] = mapped_column(String)
     scope: Mapped[str] = mapped_column(String, default="timing:write")
     time_offset_seconds: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
