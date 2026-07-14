@@ -254,12 +254,13 @@ async def certificate_all(
     rows = await services.build_results(session, comp, only_published=False)
     finishers = [r for r in rows if r.finish_seconds is not None]
     # Sortierung: Altersklasse aufsteigend, dann (nur bei Geschlechtswertung) nach
-    # Geschlecht, und innerhalb der Gruppe aufsteigend nach Zeit (= Platzierung).
+    # Geschlecht, und innerhalb der Gruppe die schlechteste Platzierung zuerst
+    # (langsamste Zeit oben, Sieger zuletzt – Siegerehrungs-Reihenfolge).
     finishers.sort(
         key=lambda r: (
             _ak_sort_key(r.category_code),
             (r.gender or "") if comp.gender_scoring else "",
-            r.finish_seconds or 0.0,
+            -(r.finish_seconds or 0.0),
         )
     )
     if not finishers:
