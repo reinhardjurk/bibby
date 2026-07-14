@@ -279,6 +279,7 @@ function CaptureLookup({ eventId, canTiming }: { eventId: string; canTiming: boo
   const [eTime, setETime] = useState("");
   const [eStatus, setEStatus] = useState("valid");
   const [eBib, setEBib] = useState("");
+  const [addTime, setAddTime] = useState("");
 
   const search = async () => {
     if (!bib) return;
@@ -286,6 +287,18 @@ function CaptureLookup({ eventId, canTiming }: { eventId: string; canTiming: boo
     setEditId(null);
     try {
       setRows(await adminApi.listTimings(eventId, Number(bib)));
+      setAddTime(toLocalInput(new Date().toISOString())); // Vorbelegung: jetzt
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common.error"));
+    }
+  };
+
+  const addCapture = async () => {
+    if (!bib || !addTime) return;
+    setError("");
+    try {
+      await adminApi.addTiming(eventId, Number(bib), new Date(addTime).toISOString());
+      search();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common.error"));
     }
@@ -341,6 +354,19 @@ function CaptureLookup({ eventId, canTiming }: { eventId: string; canTiming: boo
       </div>
       {error && <p className="error">{error}</p>}
       {rows && rows.length === 0 && <p>{t("special.noCaptures")}</p>}
+      {rows !== null && canTiming && (
+        <div className="row" style={{ marginTop: 8 }}>
+          <input
+            type="datetime-local"
+            step={1}
+            value={addTime}
+            onChange={(e) => setAddTime(e.target.value)}
+          />
+          <button className="primary" onClick={addCapture} disabled={!addTime}>
+            {t("special.addCapture")}
+          </button>
+        </div>
+      )}
       {rows && rows.length > 0 && (
         <table className="results">
           <thead>

@@ -290,6 +290,11 @@ export const adminApi = {
     body: { status: string; bib_number?: number; absolute_time?: string }
   ) => adminReq(`/timings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteTiming: (id: string) => adminReq(`/timings/${id}`, { method: "DELETE" }),
+  addTiming: (eventId: string, bib: number, absoluteTime: string) =>
+    adminReq(`/events/${eventId}/timings/${bib}/manual`, {
+      method: "POST",
+      body: JSON.stringify({ absolute_time: absoluteTime }),
+    }),
   version: () => req<VersionInfo>("/version"),
   getMailSettings: () => adminReq<MailSettings>("/admin/mail-settings"),
   setMailMode: (testMode: boolean) =>

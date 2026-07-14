@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..models import DeviceToken, TimingRecord
-from ..schemas import TimingBatch, TimingBatchResult, TimingCorrection
+from ..schemas import ManualTiming, TimingBatch, TimingBatchResult, TimingCorrection
 from ..security import require_device_token, require_roles
 
 router = APIRouter(tags=["timing"])
@@ -59,6 +59,28 @@ async def ingest(
     # direkt aus den Erfassungen gemittelt – hier nichts weiter zu tun.
     await session.commit()
     return TimingBatchResult(accepted=accepted, duplicates=len(batch.pings) - accepted)
+
+
+@router.post("/events/{event_id}/timings/{bib_number}/manual")
+async def add_manual(
+    event_id: uuid.UUID,
+    bib_number: int,
+    body: ManualTiming,
+    _user=Depends(require_roles("timing")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Manuell eine Erfassung für eine Startnummer anlegen (Stab) – z. B. wenn
+    für die Nummer gar keine Erfassung vorliegt. Status 'manual'."""
+    rec = TimingRecord(
+        event_id=event_id,
+        bib_number=bib_number,
+        absolute_time=body.absolute_time,
+        dedup_key=f"manual-{uuid.uuid4()}",
+        status="manual",
+    )
+    session.add(rec)
+    await session.commit()
+    return {"ok": True, "id": str(rec.id)}
 
 
 @router.patch("/timings/{record_id}")

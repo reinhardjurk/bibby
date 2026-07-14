@@ -99,6 +99,10 @@ class TimingCorrection(BaseModel):
     absolute_time: datetime | None = None
 
 
+class ManualTiming(BaseModel):
+    absolute_time: datetime
+
+
 # --- Ergebnisse -----------------------------------------------------------
 class LapSplit(BaseModel):
     lap_index: int
