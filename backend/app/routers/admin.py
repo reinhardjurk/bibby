@@ -205,6 +205,7 @@ async def certificate_bundle(
             "first_name": r.first_name,
             "last_name": r.last_name,
             "time_text": services.format_duration(r.finish_seconds),
+            "bib_text": services.certificate_bib_text(r.bib_number, lang),
             "extra_lines": services.certificate_lines(services.placement_from_rows(rows, r.bib_number), lang),
         }
         for r in rows
@@ -245,6 +246,7 @@ async def certificate_by_bib(
         "first_name": me.first_name,
         "last_name": me.last_name,
         "time_text": services.format_duration(me.finish_seconds),
+        "bib_text": services.certificate_bib_text(bib, lang),
         "extra_lines": services.certificate_lines(services.placement_from_rows(rows, bib), lang),
     }
     return await _certificate_response([cert], event, f"urkunde-{bib}.pdf")

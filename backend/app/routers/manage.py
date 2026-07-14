@@ -133,14 +133,17 @@ async def certificate_pdf(
 
     # Vier Platzierungen für die Urkunde (gesamt/AK je insgesamt/Geschlecht).
     extra_lines: list[str] = []
+    bib_text: str | None = None
     if reg.bib is not None:
         placement = await services.result_placement(session, competition, reg.bib.bib_number)
         extra_lines = services.certificate_lines(placement, reg.language)
+        bib_text = services.certificate_bib_text(reg.bib.bib_number, reg.language)
 
     pdf = services.render_certificate_pdf(
         first_name=participant.first_name,
         last_name=participant.last_name,
         time_text=services.format_duration(reg.finish_seconds),
+        bib_text=bib_text,
         extra_lines=extra_lines,
         background=event.certificate_bg,
         background_mime=event.certificate_bg_mime,

@@ -520,9 +520,13 @@ def render_certificates_pdf(
         lines = "".join(
             f'<div class="line">{escape(x)}</div>' for x in (cert.get("extra_lines") or [])
         )
+        bib_html = (
+            f'<div class="bib">{escape(cert["bib_text"])}</div>' if cert.get("bib_text") else ""
+        )
         return (
             '<div class="page"><div class="content">'
             f'<div class="name">{escape(cert["first_name"])} {escape(cert["last_name"])}</div>'
+            f"{bib_html}"
             f'<div class="time">{escape(cert["time_text"])}</div>'
             f"{lines}</div></div>"
         )
@@ -539,6 +543,8 @@ def render_certificates_pdf(
       .content {{ text-align: center; }}
       .name {{ font-family: Helvetica, Arial, sans-serif; font-size: 34pt;
                font-weight: 700; color: #1c2430; }}
+      .bib {{ font-family: Helvetica, Arial, sans-serif; font-size: 20pt;
+              margin-top: 4mm; color: #1c2430; }}
       .time {{ font-family: Helvetica, Arial, sans-serif; font-size: 26pt;
                margin-top: 8mm; color: #2f6df0; }}
       .line {{ font-family: Helvetica, Arial, sans-serif; font-size: 18pt;
@@ -548,11 +554,17 @@ def render_certificates_pdf(
     return HTML(string=html).write_pdf()
 
 
+def certificate_bib_text(bib_number: int, lang: str = "de") -> str:
+    """Beschriftung der Startnummer auf der Urkunde (lokalisiert)."""
+    return f"Bib {bib_number}" if lang == "en" else f"Startnummer {bib_number}"
+
+
 def render_certificate_pdf(
     *,
     first_name: str,
     last_name: str,
     time_text: str,
+    bib_text: str | None = None,
     extra_lines: list[str] | None = None,
     background: bytes | None = None,
     background_mime: str | None = None,
@@ -564,6 +576,7 @@ def render_certificate_pdf(
                 "first_name": first_name,
                 "last_name": last_name,
                 "time_text": time_text,
+                "bib_text": bib_text,
                 "extra_lines": extra_lines or [],
             }
         ],
