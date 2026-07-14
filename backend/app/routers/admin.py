@@ -138,6 +138,118 @@ async def upload_certificate_background(
     return {"ok": True, "size": len(data)}
 
 
+# --- Ergebnisdruck: Urkunden ----------------------------------------------
+_RESULT_ROLES = ("admin", "race_office", "timing", "viewer")
+
+
+@router.get("/events/{event_id}/certificate-groups")
+async def certificate_groups(
+    event_id: uuid.UUID,
+    _user=Depends(require_roles(*_RESULT_ROLES)),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    """Alle (Lauf × Altersklasse)-Kombinationen mit Finishern + Anzahl."""
+    comps = (
+        await session.execute(
+            select(Competition).where(Competition.event_id == event_id).order_by(Competition.id)
+        )
+    ).scalars().all()
+    groups: list[dict] = []
+    for comp in comps:
+        rows = await services.build_results(session, comp, only_published=False)
+        by_class: dict[str | None, int] = {}
+        for r in rows:
+            if r.finish_seconds is not None:
+                by_class[r.category_code] = by_class.get(r.category_code, 0) + 1
+        for code in sorted(by_class, key=lambda c: c or ""):
+            groups.append(
+                {
+                    "competition_id": str(comp.id),
+                    "competition_title": comp.title_i18n,
+                    "age_class": code,
+                    "count": by_class[code],
+                }
+            )
+    return groups
+
+
+async def _certificate_response(certs: list[dict], event: Event, filename: str) -> Response:
+    pdf = services.render_certificates_pdf(
+        certs, background=event.certificate_bg, background_mime=event.certificate_bg_mime
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@router.get("/events/{event_id}/competitions/{competition_id}/certificates")
+async def certificate_bundle(
+    event_id: uuid.UUID,
+    competition_id: uuid.UUID,
+    age_class: str = "",
+    lang: str = "de",
+    _user=Depends(require_roles(*_RESULT_ROLES)),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Sammel-PDF aller Urkunden einer (Lauf × Altersklasse)-Kombination."""
+    comp = await session.get(Competition, competition_id)
+    if comp is None or comp.event_id != event_id:
+        raise HTTPException(404, "Strecke gehört nicht zu diesem Event")
+    event = await session.get(Event, event_id)
+    target = age_class or None
+    rows = await services.build_results(session, comp, only_published=False)
+    certs = [
+        {
+            "first_name": r.first_name,
+            "last_name": r.last_name,
+            "time_text": services.format_duration(r.finish_seconds),
+            "extra_lines": services.certificate_lines(services.placement_from_rows(rows, r.bib_number), lang),
+        }
+        for r in rows
+        if r.finish_seconds is not None and r.category_code == target
+    ]
+    if not certs:
+        raise HTTPException(404, "Keine Urkunden für diese Kombination")
+    label = (comp.title_i18n or {}).get(lang) or (comp.title_i18n or {}).get("de") or "lauf"
+    return await _certificate_response(certs, event, f"urkunden-{label}-{target or 'ak'}.pdf")
+
+
+@router.get("/events/{event_id}/certificate")
+async def certificate_by_bib(
+    event_id: uuid.UUID,
+    bib: int,
+    lang: str = "de",
+    _user=Depends(require_roles(*_RESULT_ROLES)),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Einzelne Urkunde für eine eingegebene Startnummer."""
+    ba = (
+        await session.execute(
+            select(BibAssignment).where(
+                BibAssignment.event_id == event_id, BibAssignment.bib_number == bib
+            )
+        )
+    ).scalar_one_or_none()
+    if ba is None:
+        raise HTTPException(404, "Startnummer nicht gefunden")
+    reg = await session.get(Registration, ba.registration_id)
+    comp = await session.get(Competition, reg.competition_id)
+    event = await session.get(Event, event_id)
+    rows = await services.build_results(session, comp, only_published=False)
+    me = next((r for r in rows if r.bib_number == bib), None)
+    if me is None or me.finish_seconds is None:
+        raise HTTPException(409, "Für diese Startnummer liegt noch keine Zeit vor")
+    cert = {
+        "first_name": me.first_name,
+        "last_name": me.last_name,
+        "time_text": services.format_duration(me.finish_seconds),
+        "extra_lines": services.certificate_lines(services.placement_from_rows(rows, bib), lang),
+    }
+    return await _certificate_response([cert], event, f"urkunde-{bib}.pdf")
+
+
 # --- Anmeldungen auflisten (paginiert + Suche) ----------------------------
 @router.get("/registrations")
 async def list_registrations(

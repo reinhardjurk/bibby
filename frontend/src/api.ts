@@ -296,6 +296,8 @@ export const adminApi = {
       body: JSON.stringify({ absolute_time: absoluteTime }),
     }),
   version: () => req<VersionInfo>("/version"),
+  certificateGroups: (eventId: string) =>
+    adminReq<CertificateGroup[]>(`/admin/events/${eventId}/certificate-groups`),
   getMailSettings: () => adminReq<MailSettings>("/admin/mail-settings"),
   setMailMode: (testMode: boolean) =>
     adminReq<MailSettings>("/admin/mail-settings", {
@@ -311,6 +313,13 @@ export type MailSettings = {
 };
 
 export type VersionInfo = { backend: string; db_schema: string | null };
+
+export type CertificateGroup = {
+  competition_id: string;
+  competition_title: Record<string, string> | null;
+  age_class: string | null;
+  count: number;
+};
 
 /** SEPA-Lastschriften als CSV (mit Auth-Header) laden – gibt Blob + Dateiname. */
 export async function downloadSepaExport(
@@ -331,6 +340,41 @@ export async function downloadSepaExport(
   const cd = res.headers.get("Content-Disposition") || "";
   const m = cd.match(/filename="?([^"]+)"?/);
   return { blob: await res.blob(), filename: m ? m[1] : "sepa-export.csv" };
+}
+
+/** Authentifizierter Datei-Download (Bearer) -> Blob + Dateiname. */
+async function authedBlob(url: string): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${adminToken.get()}` } });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error((d as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename="?([^"]+)"?/);
+  return { blob: await res.blob(), filename: m ? m[1] : "download.pdf" };
+}
+
+/** Sammel-PDF aller Urkunden einer (Lauf × Altersklasse)-Kombination. */
+export function downloadCertificateBundle(
+  eventId: string,
+  competitionId: string,
+  ageClass: string | null,
+  lang: string
+): Promise<{ blob: Blob; filename: string }> {
+  const q = new URLSearchParams({ age_class: ageClass ?? "", lang }).toString();
+  return authedBlob(
+    `${BASE}/admin/events/${eventId}/competitions/${competitionId}/certificates?${q}`
+  );
+}
+
+/** Einzelne Urkunde für eine Startnummer. */
+export function downloadCertificateByBib(
+  eventId: string,
+  bib: number,
+  lang: string
+): Promise<{ blob: Blob; filename: string }> {
+  const q = new URLSearchParams({ bib: String(bib), lang }).toString();
+  return authedBlob(`${BASE}/admin/events/${eventId}/certificate?${q}`);
 }
 
 /** Urkunden-Hintergrund (Bild) für ein Event hochladen (Multipart, mit Auth). */

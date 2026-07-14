@@ -131,33 +131,11 @@ async def certificate_pdf(
     event = await session.get(Event, reg.event_id)
     competition = await session.get(Competition, reg.competition_id)
 
-    # Vier Platzierungen für die Urkunde: gesamt, gesamt je Geschlecht,
-    # Altersklasse, Altersklasse je Geschlecht.
-    en = reg.language == "en"
-    gender_words = (
-        {"f": "female", "m": "male", "x": "diverse"}
-        if en
-        else {"f": "weiblich", "m": "männlich", "x": "divers"}
-    )
+    # Vier Platzierungen für die Urkunde (gesamt/AK je insgesamt/Geschlecht).
     extra_lines: list[str] = []
     if reg.bib is not None:
-        p = await services.result_placement(session, competition, reg.bib.bib_number)
-        if p:
-            g = gender_words.get(p["gender"], p["gender"] or "")
-            code = p["class_code"]
-            of = "of" if en else "von"
-            overall = "Overall rank" if en else "Platz gesamt"
-            ak = "Age group" if en else "Altersklasse"
-            extra_lines.append(f"{overall}: {p['overall_rank']} {of} {p['overall_total']}")
-            extra_lines.append(
-                f"{overall} ({g}): {p['gender_rank']} {of} {p['gender_total']}"
-            )
-            if code:
-                extra_lines.append(f"{ak} {code}: {p['class_rank']} {of} {p['class_total']}")
-                extra_lines.append(
-                    f"{ak} {code} ({g}): "
-                    f"{p['class_gender_rank']} {of} {p['class_gender_total']}"
-                )
+        placement = await services.result_placement(session, competition, reg.bib.bib_number)
+        extra_lines = services.certificate_lines(placement, reg.language)
 
     pdf = services.render_certificate_pdf(
         first_name=participant.first_name,

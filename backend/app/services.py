@@ -246,14 +246,10 @@ async def build_results(
     return [r for r in rows if r.published or not only_published]
 
 
-async def result_placement(
-    session: AsyncSession, competition: Competition, bib_number: int
-) -> dict | None:
-    """Platzierung einer Startnummer im Wettbewerb – vier Wertungen:
-    gesamt, gesamt je Geschlecht, Altersklasse, Altersklasse je Geschlecht.
-    Ränge kommen aus build_results (über das ganze Feld, bereits nach Zeit
-    sortiert). None, wenn die Startnummer (noch) keine Zielzeit hat."""
-    rows = await build_results(session, competition, only_published=False)
+def placement_from_rows(rows: list[ResultRow], bib_number: int) -> dict | None:
+    """Vier Platzierungen einer Startnummer aus bereits berechneten Ergebnis-
+    Zeilen (build_results): gesamt, gesamt je Geschlecht, Altersklasse,
+    Altersklasse je Geschlecht. None, wenn keine Zielzeit."""
     me = next((r for r in rows if r.bib_number == bib_number), None)
     if me is None or me.finish_seconds is None or me.rank is None:
         return None
@@ -279,6 +275,42 @@ async def result_placement(
         "class_gender_rank": rank_in(by_class_gender),
         "class_gender_total": len(by_class_gender),
     }
+
+
+async def result_placement(
+    session: AsyncSession, competition: Competition, bib_number: int
+) -> dict | None:
+    """Wie placement_from_rows, berechnet die Ergebnis-Zeilen selbst."""
+    rows = await build_results(session, competition, only_published=False)
+    return placement_from_rows(rows, bib_number)
+
+
+def certificate_lines(placement: dict | None, lang: str = "de") -> list[str]:
+    """Die vier Platzierungszeilen für die Urkunde (lokalisiert de/en)."""
+    if not placement:
+        return []
+    en = lang == "en"
+    gender_words = (
+        {"f": "female", "m": "male", "x": "diverse"}
+        if en
+        else {"f": "weiblich", "m": "männlich", "x": "divers"}
+    )
+    g = gender_words.get(placement["gender"], placement["gender"] or "")
+    code = placement["class_code"]
+    of = "of" if en else "von"
+    overall = "Overall rank" if en else "Platz gesamt"
+    ak = "Age group" if en else "Altersklasse"
+    lines = [
+        f"{overall}: {placement['overall_rank']} {of} {placement['overall_total']}",
+        f"{overall} ({g}): {placement['gender_rank']} {of} {placement['gender_total']}",
+    ]
+    if code:
+        lines.append(f"{ak} {code}: {placement['class_rank']} {of} {placement['class_total']}")
+        lines.append(
+            f"{ak} {code} ({g}): "
+            f"{placement['class_gender_rank']} {of} {placement['class_gender_total']}"
+        )
+    return lines
 
 
 async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> int:
@@ -461,18 +493,15 @@ def format_duration(seconds: float) -> str:
     return f"{minutes}:{secs:02d}"
 
 
-def render_certificate_pdf(
+def render_certificates_pdf(
+    certs: list[dict],
     *,
-    first_name: str,
-    last_name: str,
-    time_text: str,
-    extra_lines: list[str] | None = None,
     background: bytes | None = None,
     background_mime: str | None = None,
 ) -> bytes:
-    """Teilnehmer-Urkunde als A4-PDF (hoch). Auf eine optionale Hintergrund-
-    vorlage werden Name, Zeit und weitere Zeilen (z. B. Platzierungen) mittig
-    gelegt. WeasyPrint erst hier importiert."""
+    """Ein oder mehrere Urkunden als A4-PDF (je eine Seite). Jede cert ist ein
+    dict {first_name, last_name, time_text, extra_lines}. Name/Zeit/Zeilen werden
+    mittig auf eine optionale Hintergrundvorlage gelegt."""
     import base64
     from html import escape
 
@@ -487,16 +516,26 @@ def render_certificate_pdf(
             "background-size: cover; background-position: center;"
         )
 
-    lines_html = "".join(
-        f'<div class="line">{escape(line)}</div>' for line in (extra_lines or [])
-    )
+    def page(cert: dict) -> str:
+        lines = "".join(
+            f'<div class="line">{escape(x)}</div>' for x in (cert.get("extra_lines") or [])
+        )
+        return (
+            '<div class="page"><div class="content">'
+            f'<div class="name">{escape(cert["first_name"])} {escape(cert["last_name"])}</div>'
+            f'<div class="time">{escape(cert["time_text"])}</div>'
+            f"{lines}</div></div>"
+        )
 
+    pages = "".join(page(c) for c in certs)
     html = f"""
     <html><head><meta charset="utf-8"><style>
       @page {{ size: A4 portrait; margin: 0; }}
       html, body {{ margin: 0; padding: 0; }}
       .page {{ width: 210mm; height: 297mm; {bg_css}
-               display: flex; align-items: center; justify-content: center; }}
+               display: flex; align-items: center; justify-content: center;
+               page-break-after: always; }}
+      .page:last-child {{ page-break-after: auto; }}
       .content {{ text-align: center; }}
       .name {{ font-family: Helvetica, Arial, sans-serif; font-size: 34pt;
                font-weight: 700; color: #1c2430; }}
@@ -504,12 +543,30 @@ def render_certificate_pdf(
                margin-top: 8mm; color: #2f6df0; }}
       .line {{ font-family: Helvetica, Arial, sans-serif; font-size: 18pt;
                margin-top: 5mm; color: #1c2430; }}
-    </style></head><body>
-      <div class="page"><div class="content">
-        <div class="name">{escape(first_name)} {escape(last_name)}</div>
-        <div class="time">{escape(time_text)}</div>
-        {lines_html}
-      </div></div>
-    </body></html>
+    </style></head><body>{pages}</body></html>
     """
     return HTML(string=html).write_pdf()
+
+
+def render_certificate_pdf(
+    *,
+    first_name: str,
+    last_name: str,
+    time_text: str,
+    extra_lines: list[str] | None = None,
+    background: bytes | None = None,
+    background_mime: str | None = None,
+) -> bytes:
+    """Einzelne Teilnehmer-Urkunde (Wrapper um render_certificates_pdf)."""
+    return render_certificates_pdf(
+        [
+            {
+                "first_name": first_name,
+                "last_name": last_name,
+                "time_text": time_text,
+                "extra_lines": extra_lines or [],
+            }
+        ],
+        background=background,
+        background_mime=background_mime,
+    )
