@@ -34,7 +34,10 @@ from .models import (
 )
 from .security import generate_token, hash_token
 
-MARKER = "@loadtest.invalid"
+# Erkennbare, aber gültige Domain (EmailStr akzeptiert keine .invalid-TLD).
+MARKER = "@loadtest.de"
+# clear erkennt Alt- ('@loadtest.invalid') und Neu-Daten ('@loadtest.de').
+CLEAR_LIKE = "%@loadtest.%"
 BIB_BASE = 90000
 
 FIRST = [
@@ -157,7 +160,7 @@ async def clear() -> None:
         rows = (
             await s.execute(
                 select(Registration.id, Registration.participant_id).where(
-                    Registration.email.like(f"%{MARKER}")
+                    Registration.email.like(CLEAR_LIKE)
                 )
             )
         ).all()

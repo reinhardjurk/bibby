@@ -220,7 +220,9 @@ class AdminRegistrationDetail(BaseModel):
     last_name: str
     birth_date: date
     gender: str
-    email: EmailStr
+    # Ausgabe-Modell: bewusst str (nicht EmailStr), damit ein evtl. ungültig
+    # gespeicherter Wert die Detailansicht nicht mit 500 blockiert.
+    email: str
     language: str
     team: str | None
     tshirt: str | None

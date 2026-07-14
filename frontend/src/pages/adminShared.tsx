@@ -227,11 +227,18 @@ export function EditRegistration({
       .catch((e) => setError(e instanceof Error ? e.message : t("common.error")));
   }, [id]);
 
+  if (error && (!detail || !form))
+    return (
+      <div className="card">
+        <p className="error">{error}</p>
+        <button onClick={onClose}>{t("admin.cancel")}</button>
+      </div>
+    );
   if (!detail || !form) return <div className="card">{t("common.loading")}</div>;
 
   const set = (patch: Partial<EditForm>) => setForm({ ...form, ...patch });
   const compLabel = (c: CompetitionDto) =>
-    c.title_i18n?.[lang] || t("register.laps", { n: c.lap_count });
+    c.title_i18n?.[lang] || "Lauf";
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
