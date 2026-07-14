@@ -209,6 +209,7 @@ function EventSettings({ eventId }: { eventId: string }) {
   const [text, setText] = useState("");
   const [cutoff, setCutoff] = useState("");
   const [included, setIncluded] = useState(false);
+  const [offset, setOffset] = useState("0");
   const [saved, setSaved] = useState(false);
   const [hasBg, setHasBg] = useState(false);
   const [bgBusy, setBgBusy] = useState(false);
@@ -220,6 +221,7 @@ function EventSettings({ eventId }: { eventId: string }) {
       setText((ev?.tshirt_options ?? []).join("\n"));
       setCutoff(ev?.junior_cutoff_date ?? "");
       setIncluded(ev?.tshirt_included ?? false);
+      setOffset(String(ev?.certificate_offset ?? 0));
       setHasBg(ev?.has_certificate_background ?? false);
       setBgMsg("");
       setSaved(false);
@@ -247,6 +249,7 @@ function EventSettings({ eventId }: { eventId: string }) {
       tshirt_options: opts,
       junior_cutoff_date: cutoff || null,
       tshirt_included: included,
+      certificate_offset: Number(offset) || 0,
     });
     setSaved(true);
   };
@@ -279,6 +282,18 @@ function EventSettings({ eventId }: { eventId: string }) {
         </label>
       </div>
       <p className="hint">{t("admin.juniorCutoffHint")}</p>
+
+      <label>
+        {t("admin.certificateOffset")}
+        <input
+          type="number"
+          step={1}
+          style={{ width: 90 }}
+          value={offset}
+          onChange={(e) => { setOffset(e.target.value); setSaved(false); }}
+        />
+      </label>
+      <p className="hint">{t("admin.certificateOffsetHint")}</p>
 
       <button className="primary" onClick={save}>
         {t("manage.save")}

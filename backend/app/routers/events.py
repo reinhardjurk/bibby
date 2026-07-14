@@ -51,6 +51,7 @@ async def list_events(session: AsyncSession = Depends(get_session)) -> list[dict
                 Event.junior_cutoff_date,
                 Event.tshirt_included,
                 Event.certificate_bg.isnot(None),
+                Event.certificate_offset,
             ).order_by(Event.year.desc())
         )
     ).all()
@@ -67,6 +68,7 @@ async def list_events(session: AsyncSession = Depends(get_session)) -> list[dict
             "junior_cutoff_date": r.junior_cutoff_date.isoformat() if r.junior_cutoff_date else None,
             "tshirt_included": r.tshirt_included,
             "has_certificate_background": r[8],
+            "certificate_offset": r.certificate_offset,
         }
         for r in rows
     ]

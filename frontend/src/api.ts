@@ -24,6 +24,7 @@ export type EventDto = {
   junior_cutoff_date: string | null;
   tshirt_included: boolean;
   has_certificate_background: boolean;
+  certificate_offset: number;
 };
 
 export type CompetitionDto = {
@@ -269,7 +270,12 @@ export const adminApi = {
     ),
   updateEvent: (
     eventId: string,
-    body: { tshirt_options?: string[]; junior_cutoff_date?: string | null; tshirt_included?: boolean }
+    body: {
+      tshirt_options?: string[];
+      junior_cutoff_date?: string | null;
+      tshirt_included?: boolean;
+      certificate_offset?: number;
+    }
   ) =>
     adminReq<{ id: string }>(`/admin/events/${eventId}`, {
       method: "PATCH",

@@ -147,6 +147,7 @@ async def certificate_pdf(
         extra_lines=extra_lines,
         background=event.certificate_bg,
         background_mime=event.certificate_bg_mime,
+        offset_lines=event.certificate_offset,
     )
     return Response(
         content=pdf,

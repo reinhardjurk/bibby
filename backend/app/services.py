@@ -493,15 +493,21 @@ def format_duration(seconds: float) -> str:
     return f"{minutes}:{secs:02d}"
 
 
+# Eine "Zeile" Versatz entspricht diesem vertikalen Weg (mm).
+CERT_LINE_MM = 8
+
+
 def render_certificates_pdf(
     certs: list[dict],
     *,
     background: bytes | None = None,
     background_mime: str | None = None,
+    offset_lines: int = 0,
 ) -> bytes:
     """Ein oder mehrere Urkunden als A4-PDF (je eine Seite). Jede cert ist ein
-    dict {first_name, last_name, time_text, extra_lines}. Name/Zeit/Zeilen werden
-    mittig auf eine optionale Hintergrundvorlage gelegt."""
+    dict {first_name, last_name, time_text, bib_text, extra_lines}. Name/Zeit/
+    Zeilen werden mittig auf eine optionale Hintergrundvorlage gelegt.
+    offset_lines verschiebt den Druck vertikal (+ nach unten, - nach oben)."""
     import base64
     from html import escape
 
@@ -540,7 +546,7 @@ def render_certificates_pdf(
                display: flex; align-items: center; justify-content: center;
                page-break-after: always; }}
       .page:last-child {{ page-break-after: auto; }}
-      .content {{ text-align: center; }}
+      .content {{ text-align: center; transform: translateY({offset_lines * CERT_LINE_MM}mm); }}
       .name {{ font-family: Helvetica, Arial, sans-serif; font-size: 34pt;
                font-weight: 700; color: #1c2430; }}
       .bib {{ font-family: Helvetica, Arial, sans-serif; font-size: 20pt;
@@ -568,6 +574,7 @@ def render_certificate_pdf(
     extra_lines: list[str] | None = None,
     background: bytes | None = None,
     background_mime: str | None = None,
+    offset_lines: int = 0,
 ) -> bytes:
     """Einzelne Teilnehmer-Urkunde (Wrapper um render_certificates_pdf)."""
     return render_certificates_pdf(
@@ -582,4 +589,5 @@ def render_certificate_pdf(
         ],
         background=background,
         background_mime=background_mime,
+        offset_lines=offset_lines,
     )

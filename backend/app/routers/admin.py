@@ -175,7 +175,10 @@ async def certificate_groups(
 
 async def _certificate_response(certs: list[dict], event: Event, filename: str) -> Response:
     pdf = services.render_certificates_pdf(
-        certs, background=event.certificate_bg, background_mime=event.certificate_bg_mime
+        certs,
+        background=event.certificate_bg,
+        background_mime=event.certificate_bg_mime,
+        offset_lines=event.certificate_offset,
     )
     return Response(
         content=pdf,
@@ -791,6 +794,8 @@ async def update_event(
         event.junior_cutoff_date = body.junior_cutoff_date
     if body.tshirt_included is not None:
         event.tshirt_included = body.tshirt_included
+    if body.certificate_offset is not None:
+        event.certificate_offset = body.certificate_offset
     await session.commit()
     return {
         "id": str(event.id),

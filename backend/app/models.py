@@ -65,6 +65,8 @@ class Event(Base):
     # abgelegt; Name + Zeit werden beim PDF-Erzeugen mittig darübergelegt.
     certificate_bg: Mapped[bytes | None] = mapped_column(LargeBinary)
     certificate_bg_mime: Mapped[str | None] = mapped_column(String)
+    # Vertikaler Versatz des Urkunden-Drucks in "Zeilen": + nach unten, - nach oben.
+    certificate_offset: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     competitions: Mapped[list[Competition]] = relationship(back_populates="event")

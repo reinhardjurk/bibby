@@ -175,6 +175,7 @@ class EventUpdate(BaseModel):
     tshirt_options: list[str] | None = None
     junior_cutoff_date: date | None = None    # Geburtsdatum ab hier = ermäßigt
     tshirt_included: bool | None = None
+    certificate_offset: int | None = None     # Urkunden-Druckversatz (Zeilen)
 
 
 class CompetitionCreate(BaseModel):
