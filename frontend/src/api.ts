@@ -302,8 +302,11 @@ export const adminApi = {
       body: JSON.stringify({ absolute_time: absoluteTime }),
     }),
   version: () => req<VersionInfo>("/version"),
-  certificateGroups: (eventId: string) =>
-    adminReq<CertificateGroup[]>(`/admin/events/${eventId}/certificate-groups`),
+  certificateGroups: (eventId: string, competitionId: string, scheme: string, gender: string) =>
+    adminReq<CertificateGroup[]>(
+      `/admin/events/${eventId}/competitions/${competitionId}/certificate-groups` +
+        `?scheme=${scheme}&gender=${encodeURIComponent(gender)}`
+    ),
   getMailSettings: () => adminReq<MailSettings>("/admin/mail-settings"),
   setMailMode: (testMode: boolean) =>
     adminReq<MailSettings>("/admin/mail-settings", {
@@ -320,12 +323,7 @@ export type MailSettings = {
 
 export type VersionInfo = { backend: string; db_schema: string | null };
 
-export type CertificateGroup = {
-  competition_id: string;
-  competition_title: Record<string, string> | null;
-  age_class: string | null;
-  count: number;
-};
+export type CertificateGroup = { age_class: string | null; count: number };
 
 /** SEPA-Lastschriften als CSV (mit Auth-Header) laden – gibt Blob + Dateiname. */
 export async function downloadSepaExport(
@@ -360,14 +358,21 @@ async function authedBlob(url: string): Promise<{ blob: Blob; filename: string }
   return { blob: await res.blob(), filename: m ? m[1] : "download.pdf" };
 }
 
-/** Sammel-PDF aller Urkunden einer (Lauf × Altersklasse)-Kombination. */
+/** Sammel-PDF der Urkunden einer Kombination (Lauf × Altersklasse × Geschlecht). */
 export function downloadCertificateBundle(
   eventId: string,
   competitionId: string,
   ageClass: string | null,
+  scheme: string,
+  gender: string,
   lang: string
 ): Promise<{ blob: Blob; filename: string }> {
-  const q = new URLSearchParams({ age_class: ageClass ?? "", lang }).toString();
+  const q = new URLSearchParams({
+    age_class: ageClass ?? "",
+    scheme,
+    gender,
+    lang,
+  }).toString();
   return authedBlob(
     `${BASE}/admin/events/${eventId}/competitions/${competitionId}/certificates?${q}`
   );
@@ -377,9 +382,10 @@ export function downloadCertificateBundle(
 export function downloadCertificateByBib(
   eventId: string,
   bib: number,
+  scheme: string,
   lang: string
 ): Promise<{ blob: Blob; filename: string }> {
-  const q = new URLSearchParams({ bib: String(bib), lang }).toString();
+  const q = new URLSearchParams({ bib: String(bib), scheme, lang }).toString();
   return authedBlob(`${BASE}/admin/events/${eventId}/certificate?${q}`);
 }
 

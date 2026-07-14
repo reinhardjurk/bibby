@@ -125,17 +125,19 @@ async def participation_count(session: AsyncSession, participant_id: uuid.UUID) 
 # =========================================================================
 # Altersklassen
 # =========================================================================
-def compute_age_class(age: int) -> str:
-    """Geschlechtsneutrale Altersklasse in 5-Jahres-Schritten (Laufsport-Schema).
-    Unter 20 = "U20"; ab 20 in Fünfergruppen: AK20 (20–24), AK25 (25–29),
-    AK30, AK35 … (das Geschlecht wird separat gewertet)."""
+def compute_age_class(age: int, scheme: str = "five") -> str:
+    """Geschlechtsneutrale Altersklasse aus dem Alter (Geschlecht separat gewertet).
+    scheme="five": 5-Jahres-Schema (Laufsport) – U20, AK20 (20–24), AK25, AK30 …
+    scheme="one":  Einjahres-Schema – jede Altersstufe eigene Klasse (AK<alter>)."""
+    if scheme == "one":
+        return f"AK{age}"
     if age < 20:
         return "U20"
     return f"AK{(age // 5) * 5}"
 
 
 async def resolve_category(
-    session: AsyncSession, event: Event, participant: Participant
+    session: AsyncSession, event: Event, participant: Participant, scheme: str = "five"
 ) -> str | None:
     """Altersklasse aus dem Alter am Veranstaltungstag (Jahr − Geburtsjahr).
     Berechnet nach compute_age_class; die Category-Tabelle wird nicht mehr
@@ -143,7 +145,7 @@ async def resolve_category(
     if participant.birth_date is None:
         return None
     age = event.event_date.year - participant.birth_date.year
-    return compute_age_class(age)
+    return compute_age_class(age, scheme)
 
 
 def compute_price_cents(event: Event, competition: Competition, birth_date: date) -> int:
@@ -189,7 +191,11 @@ async def bib_finish_datetime(
 # Ergebnisliste pro Wettbewerb
 # =========================================================================
 async def build_results(
-    session: AsyncSession, competition: Competition, *, only_published: bool = True
+    session: AsyncSession,
+    competition: Competition,
+    *,
+    only_published: bool = True,
+    scheme: str = "five",
 ) -> list[ResultRow]:
     """Ergebnisliste eines Wettbewerbs.
 
@@ -227,7 +233,7 @@ async def build_results(
                 first_name=participant.first_name,
                 last_name=participant.last_name,
                 gender=participant.gender,
-                category_code=await resolve_category(session, event, participant),
+                category_code=await resolve_category(session, event, participant, scheme),
                 team=reg.team,
                 finish_seconds=finish_seconds,
                 splits=[],

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   adminApi,
+  api,
   downloadCertificateBundle,
   downloadCertificateByBib,
   type CertificateGroup,
+  type CompetitionDto,
 } from "../api";
 import { useI18n } from "../i18n";
 import {
@@ -38,18 +40,78 @@ export function ResultsPrintPage() {
 }
 
 function ResultsPrintDashboard() {
+  const { t, lang } = useI18n();
   const { events, eventId, setEventId } = useEventSelector();
+  const [comps, setComps] = useState<CompetitionDto[]>([]);
+  const [competitionId, setCompetitionId] = useState("");
+  const [scheme, setScheme] = useState("five");
+  const [gender, setGender] = useState(""); // "" = alle
+
+  useEffect(() => {
+    if (!eventId) {
+      setComps([]);
+      setCompetitionId("");
+      return;
+    }
+    api.listCompetitions(eventId).then((c) => {
+      setComps(c);
+      setCompetitionId((prev) => (c.some((x) => x.id === prev) ? prev : c[0]?.id ?? ""));
+    });
+  }, [eventId]);
+
+  const compLabel = (c: CompetitionDto) => c.title_i18n?.[lang] || t("admin.race");
 
   return (
     <>
       <EventSelect events={events} eventId={eventId} onChange={setEventId} />
-      {eventId && <SingleCertificate eventId={eventId} />}
-      {eventId && <BundleList eventId={eventId} />}
+
+      {eventId && <SingleCertificate eventId={eventId} scheme={scheme} />}
+
+      {eventId && (
+        <>
+          <h3>{t("resultsprint.bundles")}</h3>
+          <p className="hint">{t("resultsprint.bundlesHint")}</p>
+          <div className="row">
+            <label>
+              {t("admin.race")}
+              <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
+                {comps.map((c) => (
+                  <option key={c.id} value={c.id}>{compLabel(c)}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("resultsprint.scheme")}
+              <select value={scheme} onChange={(e) => setScheme(e.target.value)}>
+                <option value="five">{t("resultsprint.scheme5")}</option>
+                <option value="one">{t("resultsprint.scheme1")}</option>
+              </select>
+            </label>
+            <label>
+              {t("resultsprint.gender")}
+              <select value={gender} onChange={(e) => setGender(e.target.value)}>
+                <option value="">{t("resultsprint.genderAll")}</option>
+                <option value="m">{t("register.gender.m")}</option>
+                <option value="f">{t("register.gender.f")}</option>
+                <option value="x">{t("register.gender.x")}</option>
+              </select>
+            </label>
+          </div>
+          {competitionId && (
+            <BundleList
+              eventId={eventId}
+              competitionId={competitionId}
+              scheme={scheme}
+              gender={gender}
+            />
+          )}
+        </>
+      )}
     </>
   );
 }
 
-function SingleCertificate({ eventId }: { eventId: string }) {
+function SingleCertificate({ eventId, scheme }: { eventId: string; scheme: string }) {
   const { t, lang } = useI18n();
   const [bib, setBib] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,7 +122,7 @@ function SingleCertificate({ eventId }: { eventId: string }) {
     setBusy(true);
     setError("");
     try {
-      const { blob, filename } = await downloadCertificateByBib(eventId, Number(bib), lang);
+      const { blob, filename } = await downloadCertificateByBib(eventId, Number(bib), scheme, lang);
       triggerDownload(blob, filename);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common.error"));
@@ -88,7 +150,17 @@ function SingleCertificate({ eventId }: { eventId: string }) {
   );
 }
 
-function BundleList({ eventId }: { eventId: string }) {
+function BundleList({
+  eventId,
+  competitionId,
+  scheme,
+  gender,
+}: {
+  eventId: string;
+  competitionId: string;
+  scheme: string;
+  gender: string;
+}) {
   const { t, lang } = useI18n();
   const [groups, setGroups] = useState<CertificateGroup[] | null>(null);
   const [busyKey, setBusyKey] = useState("");
@@ -98,20 +170,22 @@ function BundleList({ eventId }: { eventId: string }) {
     setGroups(null);
     setError("");
     adminApi
-      .certificateGroups(eventId)
+      .certificateGroups(eventId, competitionId, scheme, gender)
       .then(setGroups)
       .catch((e) => setError(e instanceof Error ? e.message : t("common.error")));
-  }, [eventId]);
+  }, [eventId, competitionId, scheme, gender]);
 
   const download = async (g: CertificateGroup) => {
-    const key = `${g.competition_id}-${g.age_class ?? ""}`;
+    const key = g.age_class ?? "";
     setBusyKey(key);
     setError("");
     try {
       const { blob, filename } = await downloadCertificateBundle(
         eventId,
-        g.competition_id,
+        competitionId,
         g.age_class,
+        scheme,
+        gender,
         lang
       );
       triggerDownload(blob, filename);
@@ -124,15 +198,12 @@ function BundleList({ eventId }: { eventId: string }) {
 
   return (
     <>
-      <h3>{t("resultsprint.bundles")}</h3>
-      <p className="hint">{t("resultsprint.bundlesHint")}</p>
       {error && <p className="error">{error}</p>}
       {groups && groups.length === 0 && <p>{t("resultsprint.none")}</p>}
       {groups && groups.length > 0 && (
         <table className="results">
           <thead>
             <tr>
-              <th>{t("admin.race")}</th>
               <th>{t("resultsprint.ageClass")}</th>
               <th>{t("resultsprint.count")}</th>
               <th></th>
@@ -140,10 +211,9 @@ function BundleList({ eventId }: { eventId: string }) {
           </thead>
           <tbody>
             {groups.map((g) => {
-              const key = `${g.competition_id}-${g.age_class ?? ""}`;
+              const key = g.age_class ?? "";
               return (
                 <tr key={key}>
-                  <td>{g.competition_title?.[lang] || "Lauf"}</td>
                   <td>{g.age_class ?? "–"}</td>
                   <td>{g.count}</td>
                   <td>

@@ -148,35 +148,38 @@ async def upload_certificate_background(
 _RESULT_ROLES = ("admin", "race_office", "timing", "viewer")
 
 
-@router.get("/events/{event_id}/certificate-groups")
+def _ak_sort_key(code: str | None) -> tuple:
+    c = code or ""
+    digits = "".join(ch for ch in c if ch.isdigit())
+    return (int(digits) if digits else 999, 0 if c.startswith("U") else 1, c)
+
+
+@router.get("/events/{event_id}/competitions/{competition_id}/certificate-groups")
 async def certificate_groups(
     event_id: uuid.UUID,
+    competition_id: uuid.UUID,
+    scheme: str = "five",  # "five" = 5-Jahres-, "one" = Einjahres-Altersklassen
+    gender: str = "",      # "" = alle, sonst "f"/"m"/"x"
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
-    """Alle (Lauf × Altersklasse)-Kombinationen mit Finishern + Anzahl."""
-    comps = (
-        await session.execute(
-            select(Competition).where(Competition.event_id == event_id).order_by(Competition.id)
-        )
-    ).scalars().all()
-    groups: list[dict] = []
-    for comp in comps:
-        rows = await services.build_results(session, comp, only_published=False)
-        by_class: dict[str | None, int] = {}
-        for r in rows:
-            if r.finish_seconds is not None:
-                by_class[r.category_code] = by_class.get(r.category_code, 0) + 1
-        for code in sorted(by_class, key=lambda c: c or ""):
-            groups.append(
-                {
-                    "competition_id": str(comp.id),
-                    "competition_title": comp.title_i18n,
-                    "age_class": code,
-                    "count": by_class[code],
-                }
-            )
-    return groups
+    """Altersklassen (nach Schema, für ein Geschlecht) mit Finisher-Anzahl."""
+    comp = await session.get(Competition, competition_id)
+    if comp is None or comp.event_id != event_id:
+        raise HTTPException(404, "Strecke gehört nicht zu diesem Event")
+    target_gender = gender or None
+    rows = await services.build_results(session, comp, only_published=False, scheme=scheme)
+    by_class: dict[str | None, int] = {}
+    for r in rows:
+        if r.finish_seconds is None:
+            continue
+        if target_gender and r.gender != target_gender:
+            continue
+        by_class[r.category_code] = by_class.get(r.category_code, 0) + 1
+    return [
+        {"age_class": code, "count": by_class[code]}
+        for code in sorted(by_class, key=_ak_sort_key)
+    ]
 
 
 async def _certificate_response(certs: list[dict], event: Event, filename: str) -> Response:
@@ -198,17 +201,20 @@ async def certificate_bundle(
     event_id: uuid.UUID,
     competition_id: uuid.UUID,
     age_class: str = "",
+    scheme: str = "five",
+    gender: str = "",
     lang: str = "de",
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    """Sammel-PDF aller Urkunden einer (Lauf × Altersklasse)-Kombination."""
+    """Sammel-PDF der Urkunden einer Kombination (Lauf × Altersklasse × Geschlecht)."""
     comp = await session.get(Competition, competition_id)
     if comp is None or comp.event_id != event_id:
         raise HTTPException(404, "Strecke gehört nicht zu diesem Event")
     event = await session.get(Event, event_id)
     target = age_class or None
-    rows = await services.build_results(session, comp, only_published=False)
+    target_gender = gender or None
+    rows = await services.build_results(session, comp, only_published=False, scheme=scheme)
     certs = [
         {
             "first_name": r.first_name,
@@ -219,18 +225,22 @@ async def certificate_bundle(
             "extra_lines": services.certificate_lines(services.placement_from_rows(rows, r.bib_number), lang),
         }
         for r in rows
-        if r.finish_seconds is not None and r.category_code == target
+        if r.finish_seconds is not None
+        and r.category_code == target
+        and (target_gender is None or r.gender == target_gender)
     ]
     if not certs:
         raise HTTPException(404, "Keine Urkunden für diese Kombination")
     label = (comp.title_i18n or {}).get(lang) or (comp.title_i18n or {}).get("de") or "lauf"
-    return await _certificate_response(certs, event, f"urkunden-{label}-{target or 'ak'}.pdf")
+    suffix = f"{target or 'ak'}{'-' + target_gender if target_gender else ''}"
+    return await _certificate_response(certs, event, f"urkunden-{label}-{suffix}.pdf")
 
 
 @router.get("/events/{event_id}/certificate")
 async def certificate_by_bib(
     event_id: uuid.UUID,
     bib: int,
+    scheme: str = "five",
     lang: str = "de",
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
@@ -248,7 +258,7 @@ async def certificate_by_bib(
     reg = await session.get(Registration, ba.registration_id)
     comp = await session.get(Competition, reg.competition_id)
     event = await session.get(Event, event_id)
-    rows = await services.build_results(session, comp, only_published=False)
+    rows = await services.build_results(session, comp, only_published=False, scheme=scheme)
     me = next((r for r in rows if r.bib_number == bib), None)
     if me is None or me.finish_seconds is None:
         raise HTTPException(409, "Für diese Startnummer liegt noch keine Zeit vor")
