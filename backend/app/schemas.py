@@ -103,6 +103,15 @@ class ManualTiming(BaseModel):
     absolute_time: datetime
 
 
+class SponsorTierCfg(BaseModel):
+    weight: int = Field(ge=0)   # Zeitanteil in der Rotation
+    height: int = Field(ge=10, le=400)  # Anzeigehöhe in px
+
+
+class SponsorTiersUpdate(BaseModel):
+    tiers: dict[str, SponsorTierCfg]
+
+
 # --- Ergebnisse -----------------------------------------------------------
 class LapSplit(BaseModel):
     lap_index: int

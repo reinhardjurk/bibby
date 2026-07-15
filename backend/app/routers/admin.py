@@ -7,7 +7,7 @@ import io
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ from ..models import (
     Participant,
     Payment,
     Registration,
+    Sponsor,
     UserRole,
 )
 from ..routers.events import event_tshirt_options
@@ -43,6 +44,7 @@ from ..schemas import (
     ParticipantMerge,
     ResultList,
     SessionToken,
+    SponsorTiersUpdate,
 )
 from ..passwords import verify_password
 from ..security import (
@@ -142,6 +144,59 @@ async def upload_certificate_background(
     event.certificate_bg_mime = file.content_type
     await session.commit()
     return {"ok": True, "size": len(data)}
+
+
+# --- Sponsoren (5 Klassen) ------------------------------------------------
+@router.post("/sponsors")
+async def upload_sponsor(
+    tier: int = Form(...),
+    name: str = Form(""),
+    file: UploadFile = File(...),
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Logo in die Klasse `tier` (1..5) hochladen."""
+    if tier < 1 or tier > 5:
+        raise HTTPException(422, "Klasse muss zwischen 1 und 5 liegen")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(422, "Bitte ein Bild hochladen (PNG, JPG oder SVG).")
+    data = await file.read()
+    if len(data) > 2_000_000:
+        raise HTTPException(413, "Datei zu groß (max. 2 MB).")
+    sponsor = Sponsor(
+        tier=tier, name=name.strip() or None, image=data, image_mime=file.content_type
+    )
+    session.add(sponsor)
+    await session.commit()
+    return {"id": str(sponsor.id), "tier": tier, "size": len(data)}
+
+
+@router.delete("/sponsors/{sponsor_id}")
+async def delete_sponsor(
+    sponsor_id: uuid.UUID,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    sponsor = await session.get(Sponsor, sponsor_id)
+    if sponsor is None:
+        raise HTTPException(404, "Sponsor nicht gefunden")
+    await session.delete(sponsor)
+    await session.commit()
+    return {"ok": True}
+
+
+@router.patch("/sponsor-tiers")
+async def update_sponsor_tiers(
+    body: SponsorTiersUpdate,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Gewicht (Zeitanteil) und Anzeigehöhe je Klasse setzen."""
+    await services.set_sponsor_tiers(
+        session, {k: v.model_dump() for k, v in body.tiers.items()}
+    )
+    await session.commit()
+    return await services.get_sponsor_tiers(session)
 
 
 # --- Ergebnisdruck: Urkunden ----------------------------------------------

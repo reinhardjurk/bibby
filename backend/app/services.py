@@ -6,6 +6,7 @@ später gegen die echte API ausgetauscht.
 
 from __future__ import annotations
 
+import json
 import unicodedata
 import uuid
 from datetime import date, datetime, timedelta
@@ -400,6 +401,16 @@ def generate_mandate_reference(year: int) -> str:
 # ohne Redeploy. Ist kein Wert gesetzt, gilt der Env-Default aus settings.
 # =========================================================================
 MAIL_TEST_MODE_KEY = "mail_test_mode"
+SPONSOR_TIERS_KEY = "sponsor_tiers"
+
+# Je Sponsorenklasse: weight = Zeitanteil in der Rotation, height = Anzeigehöhe (px).
+DEFAULT_SPONSOR_TIERS: dict[str, dict[str, int]] = {
+    "1": {"weight": 30, "height": 90},
+    "2": {"weight": 20, "height": 70},
+    "3": {"weight": 10, "height": 55},
+    "4": {"weight": 5, "height": 45},
+    "5": {"weight": 1, "height": 35},
+}
 
 
 async def get_app_setting(session: AsyncSession, key: str) -> str | None:
@@ -414,6 +425,25 @@ async def set_app_setting(session: AsyncSession, key: str, value: str) -> None:
         session.add(AppSetting(key=key, value=value))
     else:
         row.value = value
+
+
+async def get_sponsor_tiers(session: AsyncSession) -> dict[str, dict[str, int]]:
+    """Konfiguration der 5 Sponsorenklassen; fehlende Werte -> Defaults."""
+    raw = await get_app_setting(session, SPONSOR_TIERS_KEY)
+    if not raw:
+        return DEFAULT_SPONSOR_TIERS
+    try:
+        stored = json.loads(raw)
+    except (ValueError, TypeError):
+        return DEFAULT_SPONSOR_TIERS
+    return {
+        tier: {**defaults, **(stored.get(tier) or {})}
+        for tier, defaults in DEFAULT_SPONSOR_TIERS.items()
+    }
+
+
+async def set_sponsor_tiers(session: AsyncSession, tiers: dict) -> None:
+    await set_app_setting(session, SPONSOR_TIERS_KEY, json.dumps(tiers))
 
 
 async def get_mail_test_mode(session: AsyncSession) -> bool:

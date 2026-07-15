@@ -189,6 +189,56 @@ table.results tr.dnf { color: var(--muted); }
 table.results select, table.results input { padding: 4px 6px; font-size: 0.9rem; }
 code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
 
+/* --- Sponsoren-Element (rotierend, wiederverwendbar) --- */
+.sponsors {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-height: 78px; /* feste Höhe -> kein Layout-Sprung beim Wechsel */
+}
+.sponsors-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sponsor-logo {
+  max-width: 70%;
+  max-height: 110px;
+  object-fit: contain;
+  animation: sponsor-fade 0.5s ease;
+}
+@keyframes sponsor-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .sponsor-logo { animation: none; }
+}
+
+/* Sponsoren-Verwaltung: Vorschau-Kacheln */
+.sponsor-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.sponsor-admin-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+.sponsor-admin-item img { max-width: 100%; max-height: 60px; object-fit: contain; }
+
 /* --- Mobil: Formularzeilen stapeln, kompaktere Abstände, Tabellen scrollen --- */
 @media (max-width: 640px) {
   .app { padding: 0 10px 40px; }
@@ -206,4 +256,8 @@ code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-brea
   /* Aktions-/Speichern-Buttons füllen die Breite -> leichter zu treffen */
   button.primary { align-self: stretch; width: 100%; }
   .admin-head { flex-wrap: wrap; }
+
+  /* Sponsoren: Label über das Logo, kleinere Maximalhöhe */
+  .sponsors { flex-direction: column; gap: 8px; padding: 12px; min-height: 90px; }
+  .sponsor-logo { max-width: 92%; max-height: 72px; }
 }

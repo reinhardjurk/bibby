@@ -283,6 +283,22 @@ class AuthToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Sponsor(Base):
+    """Sponsorenlogo. tier = Klasse 1..5 (der "Ordner"); Gewicht/Anzeigehöhe je
+    Klasse liegen in app_setting (sponsor_tiers)."""
+
+    __tablename__ = "sponsor"
+
+    id: Mapped[uuid.UUID] = _pk()
+    tier: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str | None] = mapped_column(String)
+    image: Mapped[bytes] = mapped_column(LargeBinary)
+    image_mime: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (CheckConstraint("tier BETWEEN 1 AND 5", name="ck_sponsor_tier"),)
+
+
 class AppSetting(Base):
     """Zur Laufzeit umschaltbare Konfiguration (key/value), z. B. der
     Mail-Testmodus. Überschreibt – wenn gesetzt – den Env-Default aus settings."""

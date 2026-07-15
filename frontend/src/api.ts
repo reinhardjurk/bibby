@@ -113,6 +113,11 @@ export const api = {
 
   getResults: (eventId: string, competitionId: string) =>
     req<ResultList>(`/events/${eventId}/results?competition_id=${competitionId}`),
+
+  /** Nur Metadaten (kein Bild) – klein und schnell. */
+  listSponsors: () => req<SponsorsDto>("/sponsors"),
+  /** Bild wird lazy vom <img> geladen und ist langlebig gecacht. */
+  sponsorImageUrl: (id: string) => `${BASE}/sponsors/${id}/image`,
 };
 
 // --- Admin -----------------------------------------------------------------
@@ -312,6 +317,12 @@ export const adminApi = {
       body: JSON.stringify({ absolute_time: absoluteTime }),
     }),
   version: () => req<VersionInfo>("/version"),
+  deleteSponsor: (id: string) => adminReq(`/admin/sponsors/${id}`, { method: "DELETE" }),
+  updateSponsorTiers: (tiers: Record<string, SponsorTierCfg>) =>
+    adminReq<Record<string, SponsorTierCfg>>("/admin/sponsor-tiers", {
+      method: "PATCH",
+      body: JSON.stringify({ tiers }),
+    }),
   certificateGroups: (eventId: string, competitionId: string) =>
     adminReq<CertificateGroup[]>(
       `/admin/events/${eventId}/competitions/${competitionId}/certificate-groups`
@@ -331,6 +342,13 @@ export type MailSettings = {
 };
 
 export type VersionInfo = { backend: string; db_schema: string | null };
+
+export type SponsorDto = { id: string; tier: number; name: string | null };
+export type SponsorTierCfg = { weight: number; height: number };
+export type SponsorsDto = {
+  tiers: Record<string, SponsorTierCfg>;
+  items: SponsorDto[];
+};
 
 export type CertificateGroup = {
   age_class: string | null;
@@ -417,6 +435,28 @@ export function downloadCertificateByBib(
     background: String(background),
   }).toString();
   return authedBlob(`${BASE}/admin/events/${eventId}/certificate?${q}`);
+}
+
+/** Sponsorenlogo in eine Klasse (1..5) hochladen (Multipart, mit Auth). */
+export async function uploadSponsor(
+  tier: number,
+  name: string,
+  file: File
+): Promise<{ id: string; tier: number; size: number }> {
+  const form = new FormData();
+  form.append("tier", String(tier));
+  form.append("name", name);
+  form.append("file", file);
+  const res = await fetch(`${BASE}/admin/sponsors`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${adminToken.get()}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error((d as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 /** Urkunden-Hintergrund (Bild) für ein Event hochladen (Multipart, mit Auth). */

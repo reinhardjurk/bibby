@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, type CompetitionDto, type ManageView } from "../api";
+import { SponsorBar } from "../components/SponsorBar";
 import { TeamInput } from "../components/TeamInput";
 import { useI18n } from "../i18n";
 
@@ -56,6 +57,7 @@ export function ManagePage() {
   const showSuggestion = !data.team && !!data.suggested_team;
 
   return (
+    <>
     <form className="card" onSubmit={save}>
       <h2>{t("manage.heading")}</h2>
       <p>
@@ -131,5 +133,7 @@ export function ManagePage() {
         </p>
       )}
     </form>
+    <SponsorBar />
+    </>
   );
 }

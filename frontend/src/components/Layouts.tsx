@@ -35,6 +35,7 @@ export function AdminLayout() {
           <NavLink to="/team/veryspecial">{t("nav.veryspecial")}</NavLink>
           <NavLink to="/team/sepa">{t("nav.sepa")}</NavLink>
           <NavLink to="/team/ergebnisdruck">{t("nav.resultsPrint")}</NavLink>
+          <NavLink to="/team/sponsoren">{t("nav.sponsors")}</NavLink>
           <NavLink to="/team/zeiterfassung">{t("nav.timing")}</NavLink>
         </nav>
         <LanguageSwitcher />

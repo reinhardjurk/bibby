@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .db import get_session
-from .routers import admin, events, manage, registrations, results, timing
+from .routers import admin, events, manage, registrations, results, sponsors, timing
 
 app = FastAPI(title="Bibby API", version="0.1.0")
 
@@ -23,6 +23,7 @@ app.include_router(registrations.router)
 app.include_router(manage.router)
 app.include_router(timing.router)
 app.include_router(results.router)
+app.include_router(sponsors.router)
 app.include_router(admin.router)
 
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type CompetitionDto, type EventDto, type RegistrationOut } from "../api";
+import { SponsorBar } from "../components/SponsorBar";
 import { TeamInput } from "../components/TeamInput";
 import { useI18n } from "../i18n";
 
@@ -73,6 +74,7 @@ export function RegisterPage() {
   if (result) {
     const link = `${window.location.origin}/manage?token=${result.manage_token}`;
     return (
+      <>
       <div className="card">
         <p className="success">{t("register.success")}</p>
         <p>
@@ -98,10 +100,13 @@ export function RegisterPage() {
           </p>
         )}
       </div>
+      <SponsorBar />
+      </>
     );
   }
 
   return (
+    <>
     <form className="card" onSubmit={submit}>
       <h2>{t("register.heading")}</h2>
       {error && <p className="error">{error}</p>}
@@ -256,5 +261,7 @@ export function RegisterPage() {
         {busy ? t("common.loading") : t("register.submit")}
       </button>
     </form>
+    <SponsorBar />
+    </>
   );
 }
