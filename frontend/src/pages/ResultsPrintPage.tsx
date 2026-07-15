@@ -45,6 +45,7 @@ function ResultsPrintDashboard() {
   const { events, eventId, setEventId } = useEventSelector();
   const [comps, setComps] = useState<CompetitionDto[]>([]);
   const [competitionId, setCompetitionId] = useState("");
+  const [withBackground, setWithBackground] = useState(true);
 
   useEffect(() => {
     if (!eventId) {
@@ -64,7 +65,21 @@ function ResultsPrintDashboard() {
     <>
       <EventSelect events={events} eventId={eventId} onChange={setEventId} />
 
-      {eventId && <SingleCertificate eventId={eventId} />}
+      {eventId && (
+        <>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={withBackground}
+              onChange={(e) => setWithBackground(e.target.checked)}
+            />
+            {t("resultsprint.withBackground")}
+          </label>
+          <p className="hint">{t("resultsprint.withBackgroundHint")}</p>
+        </>
+      )}
+
+      {eventId && <SingleCertificate eventId={eventId} background={withBackground} />}
 
       {eventId && (
         <>
@@ -79,16 +94,36 @@ function ResultsPrintDashboard() {
                 ))}
               </select>
             </label>
-            {competitionId && <PrintAllButton eventId={eventId} competitionId={competitionId} />}
+            {competitionId && (
+              <PrintAllButton
+                eventId={eventId}
+                competitionId={competitionId}
+                background={withBackground}
+              />
+            )}
           </div>
-          {competitionId && <BundleList eventId={eventId} competitionId={competitionId} />}
+          {competitionId && (
+            <BundleList
+              eventId={eventId}
+              competitionId={competitionId}
+              background={withBackground}
+            />
+          )}
         </>
       )}
     </>
   );
 }
 
-function PrintAllButton({ eventId, competitionId }: { eventId: string; competitionId: string }) {
+function PrintAllButton({
+  eventId,
+  competitionId,
+  background,
+}: {
+  eventId: string;
+  competitionId: string;
+  background: boolean;
+}) {
   const { t, lang } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -97,7 +132,12 @@ function PrintAllButton({ eventId, competitionId }: { eventId: string; competiti
     setBusy(true);
     setError("");
     try {
-      const { blob, filename } = await downloadAllCertificates(eventId, competitionId, lang);
+      const { blob, filename } = await downloadAllCertificates(
+        eventId,
+        competitionId,
+        lang,
+        background
+      );
       triggerDownload(blob, filename);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common.error"));
@@ -116,7 +156,7 @@ function PrintAllButton({ eventId, competitionId }: { eventId: string; competiti
   );
 }
 
-function SingleCertificate({ eventId }: { eventId: string }) {
+function SingleCertificate({ eventId, background }: { eventId: string; background: boolean }) {
   const { t, lang } = useI18n();
   const [bib, setBib] = useState("");
   const [busy, setBusy] = useState(false);
@@ -127,7 +167,12 @@ function SingleCertificate({ eventId }: { eventId: string }) {
     setBusy(true);
     setError("");
     try {
-      const { blob, filename } = await downloadCertificateByBib(eventId, Number(bib), lang);
+      const { blob, filename } = await downloadCertificateByBib(
+        eventId,
+        Number(bib),
+        lang,
+        background
+      );
       triggerDownload(blob, filename);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common.error"));
@@ -155,7 +200,15 @@ function SingleCertificate({ eventId }: { eventId: string }) {
   );
 }
 
-function BundleList({ eventId, competitionId }: { eventId: string; competitionId: string }) {
+function BundleList({
+  eventId,
+  competitionId,
+  background,
+}: {
+  eventId: string;
+  competitionId: string;
+  background: boolean;
+}) {
   const { t } = useI18n();
   const [groups, setGroups] = useState<CertificateGroup[] | null>(null);
   const [busyKey, setBusyKey] = useState("");
@@ -188,7 +241,8 @@ function BundleList({ eventId, competitionId }: { eventId: string; competitionId
         competitionId,
         g.age_class,
         g.gender,
-        "de"
+        "de",
+        background
       );
       triggerDownload(blob, filename);
     } catch (e) {

@@ -377,12 +377,14 @@ export function downloadCertificateBundle(
   competitionId: string,
   ageClass: string | null,
   gender: string | null,
-  lang: string
+  lang: string,
+  background = true
 ): Promise<{ blob: Blob; filename: string }> {
   const q = new URLSearchParams({
     age_class: ageClass ?? "",
     gender: gender ?? "",
     lang,
+    background: String(background),
   }).toString();
   return authedBlob(
     `${BASE}/admin/events/${eventId}/competitions/${competitionId}/certificates?${q}`
@@ -393,9 +395,10 @@ export function downloadCertificateBundle(
 export function downloadAllCertificates(
   eventId: string,
   competitionId: string,
-  lang: string
+  lang: string,
+  background = true
 ): Promise<{ blob: Blob; filename: string }> {
-  const q = new URLSearchParams({ lang }).toString();
+  const q = new URLSearchParams({ lang, background: String(background) }).toString();
   return authedBlob(
     `${BASE}/admin/events/${eventId}/competitions/${competitionId}/certificates-all?${q}`
   );
@@ -405,9 +408,14 @@ export function downloadAllCertificates(
 export function downloadCertificateByBib(
   eventId: string,
   bib: number,
-  lang: string
+  lang: string,
+  background = true
 ): Promise<{ blob: Blob; filename: string }> {
-  const q = new URLSearchParams({ bib: String(bib), lang }).toString();
+  const q = new URLSearchParams({
+    bib: String(bib),
+    lang,
+    background: String(background),
+  }).toString();
   return authedBlob(`${BASE}/admin/events/${eventId}/certificate?${q}`);
 }
 

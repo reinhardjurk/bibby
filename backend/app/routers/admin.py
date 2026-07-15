@@ -179,11 +179,15 @@ async def certificate_groups(
     ]
 
 
-async def _certificate_response(certs: list[dict], event: Event, filename: str) -> Response:
+async def _certificate_response(
+    certs: list[dict], event: Event, filename: str, *, with_background: bool = True
+) -> Response:
+    """with_background=False -> nur Text auf weißem A4 (z. B. für vorgedrucktes
+    Urkundenpapier)."""
     pdf = services.render_certificates_pdf(
         certs,
-        background=event.certificate_bg,
-        background_mime=event.certificate_bg_mime,
+        background=event.certificate_bg if with_background else None,
+        background_mime=event.certificate_bg_mime if with_background else None,
         offset_lines=event.certificate_offset,
     )
     return Response(
@@ -200,6 +204,7 @@ async def certificate_bundle(
     age_class: str = "",
     gender: str = "",
     lang: str = "de",
+    background: bool = True,
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -234,7 +239,9 @@ async def certificate_bundle(
         raise HTTPException(404, "Keine Urkunden für diese Kombination")
     label = (comp.title_i18n or {}).get(lang) or (comp.title_i18n or {}).get("de") or "lauf"
     suffix = f"{target or 'ak'}{'-' + target_gender if target_gender else ''}"
-    return await _certificate_response(certs, event, f"urkunden-{label}-{suffix}.pdf")
+    return await _certificate_response(
+        certs, event, f"urkunden-{label}-{suffix}.pdf", with_background=background
+    )
 
 
 @router.get("/events/{event_id}/competitions/{competition_id}/certificates-all")
@@ -242,6 +249,7 @@ async def certificate_all(
     event_id: uuid.UUID,
     competition_id: uuid.UUID,
     lang: str = "de",
+    background: bool = True,
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -281,7 +289,9 @@ async def certificate_all(
         for r in finishers
     ]
     label = (comp.title_i18n or {}).get(lang) or (comp.title_i18n or {}).get("de") or "lauf"
-    return await _certificate_response(certs, event, f"urkunden-{label}-alle.pdf")
+    return await _certificate_response(
+        certs, event, f"urkunden-{label}-alle.pdf", with_background=background
+    )
 
 
 @router.get("/events/{event_id}/certificate")
@@ -289,6 +299,7 @@ async def certificate_by_bib(
     event_id: uuid.UUID,
     bib: int,
     lang: str = "de",
+    background: bool = True,
     _user=Depends(require_roles(*_RESULT_ROLES)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -319,7 +330,9 @@ async def certificate_by_bib(
             services.placement_from_rows(rows, bib), lang, gender_scoring=comp.gender_scoring
         ),
     }
-    return await _certificate_response([cert], event, f"urkunde-{bib}.pdf")
+    return await _certificate_response(
+        [cert], event, f"urkunde-{bib}.pdf", with_background=background
+    )
 
 
 # --- Anmeldungen auflisten (paginiert + Suche) ----------------------------
