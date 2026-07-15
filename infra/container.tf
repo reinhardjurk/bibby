@@ -24,7 +24,7 @@ resource "scaleway_container" "api" {
   port           = 8000
   cpu_limit      = 1000
   memory_limit   = 1024
-  min_scale      = 0
+  min_scale      = var.min_scale
   max_scale      = 5
   deploy         = true
 

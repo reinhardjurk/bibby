@@ -105,6 +105,12 @@ variable "min_lap_seconds" {
   default     = 60
 }
 
+variable "min_scale" {
+  description = "Min. laufende Container-Instanzen. 0 = skaliert auf null (spart Kosten, aber Kaltstart); 1 = immer warm (schneller, kostet)."
+  type        = number
+  default     = 0
+}
+
 variable "mail_test_recipient" {
   description = "Empfänger im Test-Modus"
   type        = string
