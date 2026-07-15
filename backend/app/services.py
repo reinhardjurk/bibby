@@ -403,13 +403,15 @@ def generate_mandate_reference(year: int) -> str:
 MAIL_TEST_MODE_KEY = "mail_test_mode"
 SPONSOR_TIERS_KEY = "sponsor_tiers"
 
-# Je Sponsorenklasse: weight = Zeitanteil in der Rotation, height = Anzeigehöhe (px).
+# Je Sponsorenklasse: weight = Zeitanteil in der Rotation, height = MAX-Höhe (px).
+# Das Logo läuft über die volle Breite; die Höhe deckelt es (kleine Klassen ->
+# kleiner dargestellt). Klasse 1 ist so hoch angesetzt, dass sie die Breite füllt.
 DEFAULT_SPONSOR_TIERS: dict[str, dict[str, int]] = {
-    "1": {"weight": 30, "height": 90},
-    "2": {"weight": 20, "height": 70},
-    "3": {"weight": 10, "height": 55},
-    "4": {"weight": 5, "height": 45},
-    "5": {"weight": 1, "height": 35},
+    "1": {"weight": 30, "height": 160},
+    "2": {"weight": 20, "height": 110},
+    "3": {"weight": 10, "height": 75},
+    "4": {"weight": 5, "height": 55},
+    "5": {"weight": 1, "height": 40},
 }
 
 

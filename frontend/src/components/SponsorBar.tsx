@@ -7,6 +7,14 @@ import { useI18n } from "../i18n";
  *  konfigurierten Verhältnis (z. B. 30:20:10:5:1). */
 const SLOT_MS = 5000;
 
+/** Die Liste wird pro Seitenaufruf nur EINMAL geholt, auch wenn mehrere
+ *  Leisten (oben/unten) gerendert werden. */
+let sponsorsCache: Promise<SponsorsDto> | null = null;
+function loadSponsors(): Promise<SponsorsDto> {
+  if (!sponsorsCache) sponsorsCache = api.listSponsors();
+  return sponsorsCache;
+}
+
 /** Klasse nach Gewicht losen (nur Klassen, die auch Logos haben). */
 function pickTier(tiers: SponsorsDto["tiers"], byTier: Map<number, SponsorDto[]>): number {
   const available = [...byTier.keys()];
@@ -34,8 +42,7 @@ export function SponsorBar() {
 
   useEffect(() => {
     let alive = true;
-    api
-      .listSponsors()
+    loadSponsors()
       .then((d) => alive && setData(d))
       .catch(() => alive && setData(null)); // Sponsoren sind optional -> still scheitern
     return () => {
@@ -72,13 +79,12 @@ export function SponsorBar() {
 
   return (
     <aside className="sponsors" aria-label={t("sponsors.label")}>
-      <span className="sponsors-label">{t("sponsors.label")}</span>
       <img
         key={current.id}
         className="sponsor-logo"
         src={api.sponsorImageUrl(current.id)}
         alt={current.name ?? t("sponsors.label")}
-        style={{ height }}
+        style={{ maxHeight: height }}
         loading="lazy"
         decoding="async"
       />

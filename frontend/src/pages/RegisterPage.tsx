@@ -75,6 +75,7 @@ export function RegisterPage() {
     const link = `${window.location.origin}/manage?token=${result.manage_token}`;
     return (
       <>
+      <SponsorBar />
       <div className="card">
         <p className="success">{t("register.success")}</p>
         <p>
@@ -107,6 +108,7 @@ export function RegisterPage() {
 
   return (
     <>
+    <SponsorBar />
     <form className="card" onSubmit={submit}>
       <h2>{t("register.heading")}</h2>
       {error && <p className="error">{error}</p>}

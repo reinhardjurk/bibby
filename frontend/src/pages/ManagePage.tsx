@@ -58,6 +58,7 @@ export function ManagePage() {
 
   return (
     <>
+    <SponsorBar />
     <form className="card" onSubmit={save}>
       <h2>{t("manage.heading")}</h2>
       <p>

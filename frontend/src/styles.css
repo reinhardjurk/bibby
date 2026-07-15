@@ -191,27 +191,20 @@ code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-brea
 
 /* --- Sponsoren-Element (rotierend, wiederverwendbar) --- */
 .sponsors {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 16px;
-  padding: 14px 16px;
+  display: block;
+  margin: 16px 0;
+  padding: 12px 14px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  min-height: 78px; /* feste Höhe -> kein Layout-Sprung beim Wechsel */
 }
-.sponsors-label {
-  color: var(--muted);
-  font-size: 0.7rem;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
+/* Logo über die komplette Breite, Höhe folgt dem Seitenverhältnis (nie verzerrt).
+   Die Klassen-Höhe ist die MAX-Höhe: hohe Klassen füllen die Breite, kleine
+   Klassen werden dadurch gedeckelt und mittig kleiner dargestellt. */
 .sponsor-logo {
-  max-width: 70%;
-  max-height: 110px;
+  display: block;
+  width: 100%;
+  height: auto;
   object-fit: contain;
   animation: sponsor-fade 0.5s ease;
 }
@@ -257,7 +250,6 @@ code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-brea
   button.primary { align-self: stretch; width: 100%; }
   .admin-head { flex-wrap: wrap; }
 
-  /* Sponsoren: Label über das Logo, kleinere Maximalhöhe */
-  .sponsors { flex-direction: column; gap: 8px; padding: 12px; min-height: 90px; }
-  .sponsor-logo { max-width: 92%; max-height: 72px; }
+  /* Sponsoren: schmalerer Rahmen, Höhe wird durch die Klasse begrenzt */
+  .sponsors { padding: 10px; margin: 12px 0; }
 }
