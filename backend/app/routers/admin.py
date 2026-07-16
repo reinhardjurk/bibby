@@ -877,14 +877,18 @@ async def sepa_export(
     now = datetime.now(timezone.utc)
     for pay, part, bib in rows:
         name = f"{part.first_name} {part.last_name}"
-        iban = crypto.decrypt(pay.iban_encrypted) if pay.iban_encrypted else ""
+        # Nicht entschlüsselbare IBAN (Key-/Secret-Rotation) darf den Export nicht
+        # sprengen: klar erkennbarer Platzhalter statt 500 für die ganze Datei.
+        iban = ""
+        if pay.iban_encrypted:
+            iban = crypto.try_decrypt(pay.iban_encrypted) or "IBAN_NICHT_ENTSCHLUESSELBAR"
         writer.writerow(
             [
                 bib.bib_number if bib else "",
                 name,
                 pay.account_holder or name,
                 iban,
-                f"{pay.amount_cents / 100:.2f}",
+                f"{(pay.amount_cents or 0) / 100:.2f}",
                 pay.currency,
                 pay.mandate_reference or "",
                 pay.mandate_granted_at.date().isoformat() if pay.mandate_granted_at else "",

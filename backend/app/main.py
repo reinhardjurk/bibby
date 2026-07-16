@@ -1,7 +1,10 @@
 """Bibby API — FastAPI-App (Deployment als Scaleway Serverless Container)."""
 
-from fastapi import Depends, FastAPI
+import logging
+
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +12,24 @@ from .config import settings
 from .db import get_session
 from .routers import admin, events, manage, registrations, results, sponsors, timing
 
+logger = logging.getLogger("bibby")
+
 app = FastAPI(title="Bibby API", version="0.1.0")
+
+
+# Fehler-Fangnetz: fängt unbehandelte Exceptions als 500-Response ab. Wichtig ist
+# die Reihenfolge – dieses Middleware wird VOR CORS registriert und liegt dadurch
+# INNERHALB der CORS-Middleware. Nur so bekommt auch eine 500-Antwort die
+# CORS-Header; sonst blockt der Browser sie und meldet nur "load failed", statt
+# den echten Fehler anzuzeigen.
+@app.middleware("http")
+async def catch_unhandled_errors(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:  # noqa: BLE001 – bewusst alles abfangen und als 500 melden
+        logger.exception("Unbehandelter Fehler bei %s %s", request.method, request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+
 
 app.add_middleware(
     CORSMiddleware,

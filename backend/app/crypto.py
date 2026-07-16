@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 from .config import settings
 
@@ -26,6 +26,16 @@ def encrypt(plaintext: str) -> str:
 
 def decrypt(token: str) -> str:
     return _fernet.decrypt(token.encode()).decode()
+
+
+def try_decrypt(token: str) -> str | None:
+    """Wie decrypt(), aber None statt Exception, wenn der Token nicht zum aktuellen
+    Key passt (z.B. nach Key-/Secret-Rotation). So reißt ein einzelner unlesbarer
+    Datensatz nicht einen ganzen Export in einen 500."""
+    try:
+        return decrypt(token)
+    except (InvalidToken, ValueError):
+        return None
 
 
 def mask_iban(iban: str) -> str:
