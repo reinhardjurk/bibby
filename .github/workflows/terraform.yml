@@ -1,0 +1,56 @@
+name: Terraform
+
+# Infrastruktur ändern ohne lokales Terminal.
+#   action = plan  -> zeigt nur die Änderungen (keine Freigabe nötig)
+#   action = apply -> wendet an (Environment "production" -> Freigabe nötig)
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: plan oder apply
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    # Nur beim apply die Freigabe-Environment aktivieren:
+    environment: ${{ inputs.action == 'apply' && 'production' || '' }}
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      # Scaleway-Provider:
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      SCW_DEFAULT_PROJECT_ID: ${{ vars.SCW_DEFAULT_PROJECT_ID }}
+      SCW_DEFAULT_ORGANIZATION_ID: ${{ vars.SCW_DEFAULT_ORGANIZATION_ID }}
+      # State-Backend (Scaleway Object Storage, S3-kompatibel):
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+
+      # terraform.tfvars kommt komplett aus einem Secret (enthält auch die
+      # sensiblen Variablen: db_access_key, db_secret_key, app_secret_key,
+      # field_encryption_key, tem_secret_key, project_id, deploy_container=true, …).
+      - name: tfvars schreiben
+        run: printf '%s' "$TFVARS" > terraform.tfvars
+        env:
+          TFVARS: ${{ secrets.TFVARS }}
+
+      - name: tofu init
+        run: tofu init -input=false
+
+      - name: tofu plan
+        run: tofu plan -input=false -no-color
+
+      - name: tofu apply
+        if: ${{ inputs.action == 'apply' }}
+        run: tofu apply -input=false -auto-approve

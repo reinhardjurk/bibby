@@ -1,0 +1,103 @@
+name: Deploy
+
+# Manuell auslösbar (GitHub → Actions → "Deploy" → Run workflow).
+# Der Job läuft in der Environment "production" -> wartet auf Freigabe,
+# wenn dort Required Reviewers konfiguriert sind.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Was ausrollen
+        type: choice
+        options: [all, backend, frontend]
+        default: all
+      migrate:
+        description: Migrationen vor dem Backend-Deploy einspielen
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      # Nicht-geheime Kennungen als Repository-Variablen:
+      REGISTRY: ${{ vars.BIBBY_REGISTRY }}                # z.B. rg.fr-par.scw.cloud/bibby
+      CONTAINER_ID: ${{ vars.BIBBY_CONTAINER_ID }}        # fe9700dd-...
+      SPA_BUCKET: ${{ vars.BIBBY_SPA_BUCKET }}            # bibby-spa-runbibby
+      S3_ENDPOINT: ${{ vars.BIBBY_S3_ENDPOINT }}          # https://s3.fr-par.scw.cloud
+      VITE_API_BASE: ${{ vars.VITE_API_BASE }}            # https://bibbye668d8a3-...scw.cloud
+      # Scaleway-Zugang (Secrets):
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      SCW_DEFAULT_PROJECT_ID: ${{ vars.SCW_DEFAULT_PROJECT_ID }}
+      SCW_DEFAULT_ORGANIZATION_ID: ${{ vars.SCW_DEFAULT_ORGANIZATION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build-Kennung setzen
+        run: echo "BUILD=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      # --- Migrationen (vor dem Backend-Deploy) ---------------------------
+      - name: Python einrichten
+        if: ${{ inputs.migrate && inputs.target != 'frontend' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Migrationen einspielen
+        if: ${{ inputs.migrate && inputs.target != 'frontend' }}
+        working-directory: backend
+        env:
+          BIBBY_DATABASE_URL: ${{ secrets.BIBBY_DATABASE_URL }}
+          BIBBY_DATABASE_SSL: "true"
+          BIBBY_SECRET_KEY: "ci"
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          alembic current
+          alembic upgrade head
+          alembic current
+
+      # --- Backend: Image bauen, pushen, Container neu ausrollen ----------
+      - name: Scaleway-CLI installieren
+        if: ${{ inputs.target != 'frontend' }}
+        run: |
+          URL=$(curl -s https://api.github.com/repos/scaleway/scaleway-cli/releases/latest \
+            | grep -o 'https://[^"]*_linux_amd64' | head -1)
+          curl -sL "$URL" -o scw && chmod +x scw && sudo mv scw /usr/local/bin/scw
+          scw version
+      - name: Backend-Image bauen + pushen
+        if: ${{ inputs.target != 'frontend' }}
+        run: |
+          echo "$SCW_SECRET_KEY" | docker login "$REGISTRY" -u nologin --password-stdin
+          docker build --pull --build-arg BUILD="$BUILD" -t "$REGISTRY/bibby-api:latest" backend
+          docker push "$REGISTRY/bibby-api:latest"
+      - name: Container neu ausrollen
+        if: ${{ inputs.target != 'frontend' }}
+        run: scw container container redeploy "$CONTAINER_ID"
+
+      # --- Frontend: SPA bauen + hochladen --------------------------------
+      - name: Node einrichten
+        if: ${{ inputs.target != 'backend' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: SPA bauen + hochladen
+        if: ${{ inputs.target != 'backend' }}
+        working-directory: frontend
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: |
+          echo "VITE_API_BASE=$VITE_API_BASE" > .env
+          npm ci
+          VITE_BUILD="$BUILD" npm run build
+          aws s3 sync dist/ "s3://$SPA_BUCKET" --endpoint-url "$S3_ENDPOINT" --delete
+
+      - name: Fertig
+        run: echo "Deploy $BUILD (Ziel $INPUT_TARGET) abgeschlossen. Build-Zeile unten auf der Seite prüfen."
+        env:
+          INPUT_TARGET: ${{ inputs.target }}
