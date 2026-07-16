@@ -189,6 +189,10 @@ table.results tr.dnf { color: var(--muted); }
 table.results select, table.results input { padding: 4px 6px; font-size: 0.9rem; }
 code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
 
+/* Breite Tabellen scrollen INNERHALB ihres Containers, statt die Seite nach
+   rechts zu schieben. Passt die Tabelle, bleibt sie volle Breite (width:100%). */
+.table-scroll { overflow-x: auto; max-width: 100%; }
+
 /* --- Kopf-Logo (global), oben mittig --- */
 .site-logo {
   display: block;

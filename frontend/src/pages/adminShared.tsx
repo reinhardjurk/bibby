@@ -410,6 +410,7 @@ export function CompetitionSettings({ eventId, lang }: { eventId: string; lang: 
   return (
     <>
       <h3>{t("admin.competitions")}</h3>
+      <div className="table-scroll">
       <table className="results">
         <thead>
           <tr>
@@ -428,6 +429,7 @@ export function CompetitionSettings({ eventId, lang }: { eventId: string; lang: 
           ))}
         </tbody>
       </table>
+      </div>
     </>
   );
 }

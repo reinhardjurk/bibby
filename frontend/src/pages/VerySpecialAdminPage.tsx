@@ -257,6 +257,7 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
       <p className="hint">{t("admin.tshirtOptionsHint")}</p>
 
       <h4>{t("admin.competitions")}</h4>
+      <div className="table-scroll">
       <table className="results">
         <thead>
           <tr>
@@ -301,6 +302,7 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
           ))}
         </tbody>
       </table>
+      </div>
       <p>
         <button type="button" onClick={addComp}>
           {t("admin.addCompetition")}
