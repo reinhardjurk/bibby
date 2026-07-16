@@ -350,6 +350,21 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify(texts),
     }),
+  listUsers: () => adminReq<AdminUser[]>("/admin/users"),
+  createUser: (body: { email: string; name: string; password: string; roles: string[] }) =>
+    adminReq<AdminUser>("/admin/users", { method: "POST", body: JSON.stringify(body) }),
+  updateUser: (
+    id: string,
+    body: { name?: string; active?: boolean; roles?: string[]; password?: string }
+  ) => adminReq<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  active: boolean;
+  roles: string[];
 };
 
 export type MailSettings = {

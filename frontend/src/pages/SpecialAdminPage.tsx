@@ -3,6 +3,7 @@ import {
   adminApi,
   formatTime,
   type AdminRegistration,
+  type AdminUser,
   type MailSettings,
   type MailTexts,
   type TimingRow,
@@ -54,6 +55,7 @@ function SpecialDashboard({ roles, lang }: { roles: string[]; lang: string }) {
       {tim && eventId && <DeviceTokens eventId={eventId} />}
       <MailModeToggle roles={roles} />
       {mng && <MailTextsEditor />}
+      {roles.includes("admin") && <UserAdmin />}
       <BuildInfo />
     </>
   );
@@ -242,6 +244,184 @@ function MailTextsEditor() {
         </>
       )}
     </section>
+  );
+}
+
+const ALL_ROLES = ["admin", "race_office", "timing", "viewer"] as const;
+
+/** Benutzerverwaltung (nur admin): Nutzer anlegen, Rollen/aktiv setzen, Passwort
+ *  zuruecksetzen. Der eigene Zugang laesst sich nicht deaktivieren/entadminen. */
+function UserAdmin() {
+  const { t } = useI18n();
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [err, setErr] = useState("");
+
+  const load = () =>
+    adminApi.listUsers().then(setUsers).catch((e) => setErr(String(e)));
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <section className="card">
+      <h3>{t("users.title")}</h3>
+      <p className="hint">{t("users.hint")}</p>
+      {err && <p className="error">{err}</p>}
+      <div className="table-scroll">
+        <table className="results">
+          <thead>
+            <tr>
+              <th>{t("users.email")}</th>
+              <th>{t("users.name")}</th>
+              <th>{t("users.roles")}</th>
+              <th>{t("users.active")}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {users?.map((u) => (
+              <UserRow key={u.id} user={u} onSaved={load} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <NewUser onCreated={load} />
+    </section>
+  );
+}
+
+function roleLabel(t: (k: string) => string, role: string) {
+  return t(`role.${role}`);
+}
+
+function UserRow({ user, onSaved }: { user: AdminUser; onSaved: () => void }) {
+  const { t } = useI18n();
+  const [roles, setRoles] = useState<string[]>(user.roles);
+  const [active, setActive] = useState(user.active);
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const toggleRole = (r: string) =>
+    setRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
+
+  const save = async () => {
+    setBusy(true);
+    setMsg("");
+    setErr("");
+    try {
+      await adminApi.updateUser(user.id, {
+        active,
+        roles,
+        password: pw || undefined,
+      });
+      setPw("");
+      setMsg("✓");
+      onSaved();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <tr className={active ? "" : "dnf"}>
+      <td>{user.email}</td>
+      <td>{user.name}</td>
+      <td>
+        {ALL_ROLES.map((r) => (
+          <label key={r} className="check" style={{ display: "inline-flex", marginRight: 10 }}>
+            <input type="checkbox" checked={roles.includes(r)} onChange={() => toggleRole(r)} />
+            {roleLabel(t, r)}
+          </label>
+        ))}
+      </td>
+      <td style={{ textAlign: "center" }}>
+        <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+      </td>
+      <td>
+        <input
+          type="password"
+          placeholder={t("users.newPassword")}
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          style={{ width: 130 }}
+        />{" "}
+        <button className="primary" onClick={save} disabled={busy}>
+          {t("manage.save")}
+        </button>{" "}
+        {msg && <span className="hint">{msg}</span>}
+        {err && <span className="error">{err}</span>}
+      </td>
+    </tr>
+  );
+}
+
+function NewUser({ onCreated }: { onCreated: () => void }) {
+  const { t } = useI18n();
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [pw, setPw] = useState("");
+  const [roles, setRoles] = useState<string[]>(["race_office"]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const toggleRole = (r: string) =>
+    setRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
+
+  const create = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await adminApi.createUser({ email, name: name || email, password: pw, roles });
+      setEmail("");
+      setName("");
+      setPw("");
+      setRoles(["race_office"]);
+      onCreated();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <h4>{t("users.new")}</h4>
+      {err && <p className="error">{err}</p>}
+      <div className="row">
+        <label>
+          {t("users.email")}
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </label>
+        <label>
+          {t("users.name")}
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label>
+          {t("users.password")}
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        </label>
+      </div>
+      <div>
+        {ALL_ROLES.map((r) => (
+          <label key={r} className="check" style={{ display: "inline-flex", marginRight: 10 }}>
+            <input type="checkbox" checked={roles.includes(r)} onChange={() => toggleRole(r)} />
+            {roleLabel(t, r)}
+          </label>
+        ))}
+      </div>
+      <button
+        className="primary"
+        onClick={create}
+        disabled={busy || !email || pw.length < 6}
+      >
+        {t("users.create")}
+      </button>
+    </>
   );
 }
 

@@ -27,8 +27,8 @@ Passwort). Nach dem Login bleibst du **72 Stunden** angemeldet; danach ist ein
 erneuter Login nötig. Oben rechts kannst du zwischen **Deutsch/Englisch**
 umschalten.
 
-Team-Zugänge werden vom technischen Administrator angelegt — es gibt (noch)
-keine Benutzerverwaltung in der Oberfläche.
+Team-Zugänge legt ein **Administrator** im Tab **Special-Admin** unter
+**„Benutzer & Rollen"** an (siehe [Kapitel 2.4](#24-benutzer--rollen-nur-admin)).
 
 ### Rollen (wer darf was)
 
@@ -166,6 +166,26 @@ Nach Auswahl des Events findest du hier die operativen Werkzeuge:
   direkt bearbeiten. Der Platzhalter **`{link}`** im Text wird durch den
   persönlichen Verwaltungslink des Teilnehmers ersetzt — er muss erhalten
   bleiben. Änderungen wirken sofort, ohne dass etwas neu ausgerollt werden muss.
+
+### 2.4 Benutzer & Rollen (nur admin)
+
+Ebenfalls im Tab **Special-Admin**, ganz unten (nur mit Rolle **admin**
+sichtbar), verwaltest du die Team-Zugänge:
+
+- **Neuen Benutzer anlegen:** E-Mail, Name, Passwort (mind. 6 Zeichen) und die
+  gewünschten **Rollen** per Häkchen. Für den Empfang/Kassieren, Sponsoren und
+  SEPA genügt **Wettkampfbüro** (`race_office`); für die Zeitnahme
+  **Zeitnahme** (`timing`); reine Zuschauer bekommen **Nur lesen** (`viewer`).
+  Mehrere Rollen sind möglich.
+- **Rollen ändern / deaktivieren:** In der Liste kannst du je Nutzer die
+  Rollen-Häkchen anpassen, den Zugang **aktiv/inaktiv** schalten und ein
+  **neues Passwort** setzen — dann **Speichern**.
+- **Schutz vor Selbst-Aussperren:** Den **eigenen** Zugang kannst du weder
+  deaktivieren noch dir selbst die Admin-Rolle entziehen.
+
+**Rollenübersicht:** Admin (alles) · Wettkampfbüro (Anmeldungen, Startnummern,
+Zahlungen, Events, SEPA, Sponsoren, Urkunden) · Zeitnahme (Zeiten & Geräte) ·
+Nur lesen (ansehen/exportieren).
 
 ### 2.3 Tab „Ergebnisdruck" — Urkunden
 

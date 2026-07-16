@@ -49,8 +49,12 @@ from ..schemas import (
     SponsorDisplayUpdate,
     SponsorTiersUpdate,
     SponsorUpdate,
+    ALLOWED_ROLES,
+    UserCreate,
+    UserOut,
+    UserUpdate,
 )
-from ..passwords import verify_password
+from ..passwords import hash_password, verify_password
 from ..security import (
     generate_device_code,
     generate_token,
@@ -94,6 +98,95 @@ async def me(
 ) -> SessionToken:
     roles = await user_roles(session, user.id)
     return SessionToken(token="(current)", expires_at=datetime.now(timezone.utc), roles=sorted(roles))
+
+
+# --- Benutzerverwaltung (nur admin) ---------------------------------------
+async def _user_out(session: AsyncSession, user: AppUser) -> UserOut:
+    roles = await user_roles(session, user.id)
+    return UserOut(
+        id=user.id, email=user.email, name=user.name, active=user.active, roles=sorted(roles)
+    )
+
+
+def _validate_roles(roles: list[str]) -> list[str]:
+    """Duplikate entfernen, unbekannte Rollen ablehnen."""
+    cleaned = sorted(set(roles))
+    invalid = [r for r in cleaned if r not in ALLOWED_ROLES]
+    if invalid:
+        raise HTTPException(422, f"Unbekannte Rolle(n): {', '.join(invalid)}")
+    return cleaned
+
+
+async def _set_roles(session: AsyncSession, user_id: uuid.UUID, roles: list[str]) -> None:
+    await session.execute(delete(UserRole).where(UserRole.user_id == user_id))
+    for role in roles:
+        session.add(UserRole(user_id=user_id, role=role))
+
+
+@router.get("/users", response_model=list[UserOut])
+async def list_users(
+    _user=Depends(require_roles("admin")),
+    session: AsyncSession = Depends(get_session),
+) -> list[UserOut]:
+    users = (await session.execute(select(AppUser).order_by(AppUser.email))).scalars().all()
+    return [await _user_out(session, u) for u in users]
+
+
+@router.post("/users", response_model=UserOut, status_code=201)
+async def create_user(
+    body: UserCreate,
+    _user=Depends(require_roles("admin")),
+    session: AsyncSession = Depends(get_session),
+) -> UserOut:
+    roles = _validate_roles(body.roles)
+    exists = (
+        await session.execute(select(AppUser).where(AppUser.email == body.email))
+    ).scalar_one_or_none()
+    if exists is not None:
+        raise HTTPException(409, "E-Mail bereits vergeben")
+    user = AppUser(
+        email=str(body.email),
+        name=body.name or str(body.email),
+        password_hash=hash_password(body.password),
+        active=True,
+    )
+    session.add(user)
+    await session.flush()
+    await _set_roles(session, user.id, roles)
+    await session.commit()
+    return await _user_out(session, user)
+
+
+@router.patch("/users/{user_id}", response_model=UserOut)
+async def update_user(
+    user_id: uuid.UUID,
+    body: UserUpdate,
+    current=Depends(require_roles("admin")),
+    session: AsyncSession = Depends(get_session),
+) -> UserOut:
+    user = await session.get(AppUser, user_id)
+    if user is None:
+        raise HTTPException(404, "Benutzer nicht gefunden")
+
+    # Selbst-Aussperren verhindern: eigene Deaktivierung / eigenen Admin-Entzug sperren.
+    is_self = user.id == current.id
+    if body.active is False and is_self:
+        raise HTTPException(400, "Der eigene Zugang kann nicht deaktiviert werden.")
+    if body.roles is not None:
+        roles = _validate_roles(body.roles)
+        if is_self and "admin" not in roles:
+            raise HTTPException(400, "Die eigene Admin-Rolle kann nicht entzogen werden.")
+        await _set_roles(session, user.id, roles)
+
+    if body.name is not None:
+        user.name = body.name
+    if body.active is not None:
+        user.active = body.active
+    if body.password:
+        user.password_hash = hash_password(body.password)
+
+    await session.commit()
+    return await _user_out(session, user)
 
 
 # --- Mail-Testmodus (Laufzeit-Schalter, kein Redeploy) --------------------

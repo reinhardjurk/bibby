@@ -185,6 +185,34 @@ class MailTexts(BaseModel):
     body_en: str = Field(min_length=1, max_length=5000)
 
 
+ALLOWED_ROLES = ("admin", "race_office", "timing", "viewer")
+
+
+class UserOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    name: str | None = None
+    active: bool
+    roles: list[str]
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    name: str | None = None
+    password: str = Field(min_length=6, max_length=200)
+    roles: list[str] = Field(default_factory=list)
+
+
+class UserUpdate(BaseModel):
+    """Alle Felder optional; nur gesetzte werden angewendet. roles ersetzt die
+    komplette Rollenmenge, wenn angegeben."""
+
+    name: str | None = None
+    active: bool | None = None
+    roles: list[str] | None = None
+    password: str | None = Field(default=None, min_length=6, max_length=200)
+
+
 class BibReassign(BaseModel):
     competition_id: uuid.UUID
 
