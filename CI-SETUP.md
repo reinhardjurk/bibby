@@ -36,10 +36,13 @@ Repo → Settings → **Environments** → **New environment** → `production` 
 **Required reviewers** = du (und Teammitglieder). Damit muss jeder Deploy/Apply
 freigegeben werden.
 
-### 4. Repository-Variablen (nicht geheim)
-Settings → Secrets and variables → **Actions → Variables**:
+### 4. Environment-Secrets (production)
+Alles wird als **Environment Secret** unter der Environment `production` angelegt
+(Settings → Environments → `production` → **Environment secrets**). Die Workflows
+laufen mit `environment: production` und lesen ausschließlich `secrets.*` — auch die
+nicht-geheimen Kennungen. Das ist unkritisch: sie werden in den Logs nur maskiert.
 
-| Name | Wert |
+| Name | Wert / Inhalt |
 |---|---|
 | `BIBBY_REGISTRY` | `rg.fr-par.scw.cloud/bibby` |
 | `BIBBY_CONTAINER_ID` | `fe9700dd-cbed-4313-9df0-5e493447968a` |
@@ -48,16 +51,10 @@ Settings → Secrets and variables → **Actions → Variables**:
 | `VITE_API_BASE` | `https://bibbye668d8a3-bibby-api.functions.fnc.fr-par.scw.cloud` |
 | `SCW_DEFAULT_PROJECT_ID` | `d7cd73e2-d1c7-4d87-969a-470eb2efeea0` |
 | `SCW_DEFAULT_ORGANIZATION_ID` | *(deine Organisations-UUID)* |
-
-### 5. Repository-Secrets (geheim)
-Settings → Secrets and variables → **Actions → Secrets**:
-
-| Name | Inhalt |
-|---|---|
 | `SCW_ACCESS_KEY` | Scaleway Access Key (`SCWXXXX…`) |
 | `SCW_SECRET_KEY` | Scaleway Secret Key |
 | `BIBBY_DATABASE_URL` | `postgresql+asyncpg://d0e6b670-…:<db-secret>@<host>:5432/<db>` — hol den Wert mit `cd infra && tofu output -raw database_url` |
-| `TFVARS` | **Kompletter Inhalt** von `infra/terraform.tfvars** — plus die bisher als `TF_VAR_*` gesetzten Werte (siehe unten) |
+| `TFVARS` | **Kompletter Inhalt** von `infra/terraform.tfvars` — plus die bisher als `TF_VAR_*` gesetzten Werte (siehe unten) |
 
 **`TFVARS`** muss ALLE Terraform-Variablen enthalten, auch die, die du früher als
 `export TF_VAR_…` gesetzt hattest:

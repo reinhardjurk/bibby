@@ -25,17 +25,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      # Nicht-geheime Kennungen als Repository-Variablen:
-      REGISTRY: ${{ vars.BIBBY_REGISTRY }}                # z.B. rg.fr-par.scw.cloud/bibby
-      CONTAINER_ID: ${{ vars.BIBBY_CONTAINER_ID }}        # fe9700dd-...
-      SPA_BUCKET: ${{ vars.BIBBY_SPA_BUCKET }}            # bibby-spa-runbibby
-      S3_ENDPOINT: ${{ vars.BIBBY_S3_ENDPOINT }}          # https://s3.fr-par.scw.cloud
-      VITE_API_BASE: ${{ vars.VITE_API_BASE }}            # https://bibbye668d8a3-...scw.cloud
-      # Scaleway-Zugang (Secrets):
+      # Alle Kennungen und Zugänge liegen als Environment-Secrets (production).
+      # (In den Logs maskiert – für die nicht-geheimen Kennungen unkritisch.)
+      REGISTRY: ${{ secrets.BIBBY_REGISTRY }}                # z.B. rg.fr-par.scw.cloud/bibby
+      CONTAINER_ID: ${{ secrets.BIBBY_CONTAINER_ID }}        # fe9700dd-...
+      SPA_BUCKET: ${{ secrets.BIBBY_SPA_BUCKET }}            # bibby-spa-runbibby
+      S3_ENDPOINT: ${{ secrets.BIBBY_S3_ENDPOINT }}          # https://s3.fr-par.scw.cloud
+      VITE_API_BASE: ${{ secrets.VITE_API_BASE }}            # https://bibbye668d8a3-...scw.cloud
       SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
       SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-      SCW_DEFAULT_PROJECT_ID: ${{ vars.SCW_DEFAULT_PROJECT_ID }}
-      SCW_DEFAULT_ORGANIZATION_ID: ${{ vars.SCW_DEFAULT_ORGANIZATION_ID }}
+      SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_DEFAULT_PROJECT_ID }}
+      SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_DEFAULT_ORGANIZATION_ID }}
     steps:
       - uses: actions/checkout@v5
 
