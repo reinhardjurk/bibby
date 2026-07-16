@@ -292,6 +292,8 @@ class Sponsor(Base):
     id: Mapped[uuid.UUID] = _pk()
     tier: Mapped[int] = mapped_column(Integer)
     name: Mapped[str | None] = mapped_column(String)
+    # Ziel-URL: wird beim Klick auf das Logo im Banner geöffnet.
+    url: Mapped[str | None] = mapped_column(String)
     image: Mapped[bytes] = mapped_column(LargeBinary)
     image_mime: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

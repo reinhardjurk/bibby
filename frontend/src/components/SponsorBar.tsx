@@ -20,6 +20,36 @@ function bandHeight(data: SponsorsDto): number {
 }
 const tierHeight = (data: SponsorsDto, tier: number) => data.tiers[String(tier)]?.height ?? 60;
 
+/** Logo als <img>, bei hinterlegter URL in einen Link gewrappt (neuer Tab). */
+function Logo({
+  sponsor,
+  className,
+  alt,
+  maxHeight,
+}: {
+  sponsor: SponsorDto;
+  className: string;
+  alt: string;
+  maxHeight: number;
+}) {
+  const img = (
+    <img
+      className={className}
+      src={api.sponsorImageUrl(sponsor.id)}
+      alt={alt}
+      style={{ maxHeight }}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+  if (!sponsor.url) return img;
+  return (
+    <a className="sponsor-link" href={sponsor.url} target="_blank" rel="noopener noreferrer">
+      {img}
+    </a>
+  );
+}
+
 export function SponsorBar() {
   const [data, setData] = useState<SponsorsDto | null>(null);
 
@@ -76,14 +106,12 @@ function Rotator({ data }: { data: SponsorsDto }) {
   if (!current) return null;
   return (
     <aside className="sponsors" style={{ height: bandHeight(data) }} aria-label={t("sponsors.label")}>
-      <img
+      <Logo
         key={current.id}
+        sponsor={current}
         className="sponsor-logo"
-        src={api.sponsorImageUrl(current.id)}
         alt={current.name ?? t("sponsors.label")}
-        style={{ maxHeight: tierHeight(data, current.tier) }}
-        loading="lazy"
-        decoding="async"
+        maxHeight={tierHeight(data, current.tier)}
       />
     </aside>
   );
@@ -103,14 +131,12 @@ function Marquee({ data }: { data: SponsorsDto }) {
     >
       <div className="marquee-track" style={{ animationDuration: `${duration}s` }}>
         {track.map((s, i) => (
-          <img
+          <Logo
             key={`${s.id}-${i}`}
+            sponsor={s}
             className="marquee-logo"
-            src={api.sponsorImageUrl(s.id)}
             alt={s.name ?? t("sponsors.label")}
-            style={{ maxHeight: tierHeight(data, s.tier) }}
-            loading="lazy"
-            decoding="async"
+            maxHeight={tierHeight(data, s.tier)}
           />
         ))}
       </div>

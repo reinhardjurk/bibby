@@ -46,6 +46,7 @@ from ..schemas import (
     SessionToken,
     SponsorDisplayUpdate,
     SponsorTiersUpdate,
+    SponsorUpdate,
 )
 from ..passwords import verify_password
 from ..security import (
@@ -152,11 +153,12 @@ async def upload_certificate_background(
 async def upload_sponsor(
     tier: int = Form(...),
     name: str = Form(""),
+    url: str = Form(""),
     file: UploadFile = File(...),
     _user=Depends(require_roles("race_office")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Logo in die Klasse `tier` (1..5) hochladen."""
+    """Logo in die Klasse `tier` (1..5) hochladen (optional mit Ziel-URL)."""
     if tier < 1 or tier > 5:
         raise HTTPException(422, "Klasse muss zwischen 1 und 5 liegen")
     if not file.content_type or not file.content_type.startswith("image/"):
@@ -165,10 +167,35 @@ async def upload_sponsor(
     if len(data) > 2_000_000:
         raise HTTPException(413, "Datei zu groß (max. 2 MB).")
     data, mime = services.normalize_logo(data, file.content_type)
-    sponsor = Sponsor(tier=tier, name=name.strip() or None, image=data, image_mime=mime)
+    sponsor = Sponsor(
+        tier=tier,
+        name=name.strip() or None,
+        url=services.normalize_url(url),
+        image=data,
+        image_mime=mime,
+    )
     session.add(sponsor)
     await session.commit()
     return {"id": str(sponsor.id), "tier": tier, "size": len(data)}
+
+
+@router.patch("/sponsors/{sponsor_id}")
+async def update_sponsor(
+    sponsor_id: uuid.UUID,
+    body: SponsorUpdate,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Name und/oder Ziel-URL eines bestehenden Logos ändern."""
+    sponsor = await session.get(Sponsor, sponsor_id)
+    if sponsor is None:
+        raise HTTPException(404, "Sponsor nicht gefunden")
+    if body.name is not None:
+        sponsor.name = body.name.strip() or None
+    if body.url is not None:
+        sponsor.url = services.normalize_url(body.url)
+    await session.commit()
+    return {"ok": True}
 
 
 @router.delete("/sponsors/{sponsor_id}")

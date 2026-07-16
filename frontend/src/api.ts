@@ -328,6 +328,8 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify({ mode }),
     }),
+  updateSponsor: (id: string, body: { name?: string; url?: string }) =>
+    adminReq(`/admin/sponsors/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   certificateGroups: (eventId: string, competitionId: string) =>
     adminReq<CertificateGroup[]>(
       `/admin/events/${eventId}/competitions/${competitionId}/certificate-groups`
@@ -348,7 +350,7 @@ export type MailSettings = {
 
 export type VersionInfo = { backend: string; db_schema: string | null };
 
-export type SponsorDto = { id: string; tier: number; name: string | null };
+export type SponsorDto = { id: string; tier: number; name: string | null; url: string | null };
 export type SponsorTierCfg = { weight: number; height: number };
 export type SponsorsDto = {
   tiers: Record<string, SponsorTierCfg>;
@@ -447,11 +449,13 @@ export function downloadCertificateByBib(
 export async function uploadSponsor(
   tier: number,
   name: string,
+  url: string,
   file: File
 ): Promise<{ id: string; tier: number; size: number }> {
   const form = new FormData();
   form.append("tier", String(tier));
   form.append("name", name);
+  form.append("url", url);
   form.append("file", file);
   const res = await fetch(`${BASE}/admin/sponsors`, {
     method: "POST",

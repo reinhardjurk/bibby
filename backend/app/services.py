@@ -460,6 +460,16 @@ async def set_sponsor_display(session: AsyncSession, mode: str) -> None:
     await set_app_setting(session, SPONSOR_DISPLAY_KEY, mode)
 
 
+def normalize_url(url: str | None) -> str | None:
+    """Leere URL -> None; ohne Schema wird https:// vorangestellt."""
+    u = (url or "").strip()
+    if not u:
+        return None
+    if not u.startswith(("http://", "https://")):
+        u = "https://" + u
+    return u
+
+
 def normalize_logo(data: bytes, mime: str) -> tuple[bytes, str]:
     """Raster-Logos auf eine einheitliche Höhe herunterskalieren (kleinere
     Dateien, konsistente Qualität). SVG bleibt vektoriell unverändert. Bei

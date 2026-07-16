@@ -3,6 +3,7 @@ import {
   adminApi,
   api,
   uploadSponsor,
+  type SponsorDto,
   type SponsorTierCfg,
   type SponsorsDto,
 } from "../api";
@@ -166,6 +167,7 @@ function UploadSponsor({ onUploaded }: { onUploaded: () => void }) {
   const { t } = useI18n();
   const [tier, setTier] = useState(1);
   const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -174,8 +176,9 @@ function UploadSponsor({ onUploaded }: { onUploaded: () => void }) {
     setBusy(true);
     setMsg("");
     try {
-      await uploadSponsor(tier, name, file);
+      await uploadSponsor(tier, name, url, file);
       setName("");
+      setUrl("");
       setMsg(t("sponsors.uploaded"));
       onUploaded();
     } catch (e) {
@@ -201,6 +204,14 @@ function UploadSponsor({ onUploaded }: { onUploaded: () => void }) {
         <label>
           {t("sponsors.name")}
           <input value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label>
+          {t("sponsors.url")}
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://…"
+          />
         </label>
       </div>
       <input
@@ -247,16 +258,51 @@ function SponsorList({ data, onChanged }: { data: SponsorsDto; onChanged: () => 
             </p>
             <div className="sponsor-admin-grid">
               {items.map((s) => (
-                <div key={s.id} className="sponsor-admin-item">
-                  <img src={api.sponsorImageUrl(s.id)} alt={s.name ?? ""} loading="lazy" />
-                  <span className="hint">{s.name ?? "–"}</span>
-                  <button onClick={() => remove(s.id)}>{t("sponsors.delete")}</button>
-                </div>
+                <SponsorItem key={s.id} sponsor={s} onDelete={() => remove(s.id)} />
               ))}
             </div>
           </div>
         );
       })}
     </>
+  );
+}
+
+function SponsorItem({ sponsor, onDelete }: { sponsor: SponsorDto; onDelete: () => void }) {
+  const { t } = useI18n();
+  const [name, setName] = useState(sponsor.name ?? "");
+  const [url, setUrl] = useState(sponsor.url ?? "");
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const save = async () => {
+    setError("");
+    try {
+      await adminApi.updateSponsor(sponsor.id, { name, url });
+      setSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common.error"));
+    }
+  };
+
+  return (
+    <div className="sponsor-admin-item">
+      <img src={api.sponsorImageUrl(sponsor.id)} alt={sponsor.name ?? ""} loading="lazy" />
+      <input
+        placeholder={t("sponsors.name")}
+        value={name}
+        onChange={(e) => { setName(e.target.value); setSaved(false); }}
+      />
+      <input
+        placeholder="https://…"
+        value={url}
+        onChange={(e) => { setUrl(e.target.value); setSaved(false); }}
+      />
+      {error && <span className="error">{error}</span>}
+      <div className="row" style={{ gap: 6 }}>
+        <button onClick={save}>{t("manage.save")}{saved ? " ✓" : ""}</button>
+        <button onClick={onDelete}>{t("sponsors.delete")}</button>
+      </div>
+    </div>
   );
 }

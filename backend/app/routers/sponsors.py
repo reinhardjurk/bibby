@@ -25,7 +25,7 @@ async def list_sponsors(session: AsyncSession = Depends(get_session)) -> dict:
     """Klassen-Konfiguration + Logo-Metadaten (ohne Bilddaten)."""
     rows = (
         await session.execute(
-            select(Sponsor.id, Sponsor.tier, Sponsor.name).order_by(
+            select(Sponsor.id, Sponsor.tier, Sponsor.name, Sponsor.url).order_by(
                 Sponsor.tier, Sponsor.created_at
             )
         )
@@ -33,7 +33,9 @@ async def list_sponsors(session: AsyncSession = Depends(get_session)) -> dict:
     return {
         "tiers": await services.get_sponsor_tiers(session),
         "display": await services.get_sponsor_display(session),
-        "items": [{"id": str(r.id), "tier": r.tier, "name": r.name} for r in rows],
+        "items": [
+            {"id": str(r.id), "tier": r.tier, "name": r.name, "url": r.url} for r in rows
+        ],
     }
 
 

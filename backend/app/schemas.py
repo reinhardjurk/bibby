@@ -116,6 +116,11 @@ class SponsorDisplayUpdate(BaseModel):
     mode: str  # 'rotate' | 'marquee'
 
 
+class SponsorUpdate(BaseModel):
+    name: str | None = None
+    url: str | None = None
+
+
 # --- Ergebnisse -----------------------------------------------------------
 class LapSplit(BaseModel):
     lap_index: int
