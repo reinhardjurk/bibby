@@ -236,24 +236,41 @@ code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-brea
   .marquee-track { animation: none; }
 }
 
-/* Sponsoren-Verwaltung: Vorschau-Kacheln */
+/* Sponsoren-Verwaltung: vertikale Liste – jeder Sponsor eine Zeile, alles untereinander */
 .sponsor-admin-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 .sponsor-admin-item {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
-  padding: 10px;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
 }
-.sponsor-admin-item img { max-width: 100%; max-height: 60px; object-fit: contain; }
+.sponsor-admin-item img {
+  flex: none;
+  width: 100px;
+  height: 50px;
+  object-fit: contain;
+  background: var(--badge);
+  border-radius: 6px;
+  padding: 4px;
+}
+.sponsor-admin-item input { flex: 1 1 200px; min-width: 140px; }
+.sponsor-admin-item .row { flex: none; gap: 6px; }
+@media (max-width: 640px) {
+  /* auf schmalen Displays komplett untereinander */
+  .sponsor-admin-item { flex-direction: column; align-items: stretch; }
+  .sponsor-admin-item img { width: 100%; height: 64px; }
+  .sponsor-admin-item .row { flex-direction: row; }
+}
 
 /* --- Mobil: Formularzeilen stapeln, kompaktere Abstände, Tabellen scrollen --- */
 @media (max-width: 640px) {

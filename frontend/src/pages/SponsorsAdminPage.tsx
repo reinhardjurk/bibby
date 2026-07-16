@@ -192,28 +192,22 @@ function UploadSponsor({ onUploaded }: { onUploaded: () => void }) {
     <>
       <h3>{t("sponsors.upload")}</h3>
       <p className="hint">{t("sponsors.uploadHint")}</p>
-      <div className="row">
-        <label>
-          {t("sponsors.tier")}
-          <select value={tier} onChange={(e) => setTier(Number(e.target.value))}>
-            {TIERS.map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t("sponsors.name")}
-          <input value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label>
-          {t("sponsors.url")}
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://…"
-          />
-        </label>
-      </div>
+      <label>
+        {t("sponsors.tier")}
+        <select value={tier} onChange={(e) => setTier(Number(e.target.value))}>
+          {TIERS.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        {t("sponsors.name")}
+        <input value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <label>
+        {t("sponsors.url")}
+        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+      </label>
       <input
         type="file"
         accept="image/png,image/jpeg,image/svg+xml,image/webp"
