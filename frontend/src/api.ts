@@ -25,6 +25,7 @@ export type EventDto = {
   tshirt_included: boolean;
   has_certificate_background: boolean;
   certificate_offset: number;
+  has_bib_background: boolean;
 };
 
 export type CompetitionDto = {
@@ -498,6 +499,24 @@ export async function uploadCertificateBackground(
   form.append("file", file);
   // Kein Content-Type setzen – der Browser ergänzt den Multipart-Boundary selbst.
   const res = await fetch(`${BASE}/admin/events/${eventId}/certificate-background`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${adminToken.get()}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error((d as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function uploadBibBackground(
+  eventId: string,
+  file: File
+): Promise<{ ok: boolean; size: number }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE}/admin/events/${eventId}/bib-background`, {
     method: "POST",
     headers: { Authorization: `Bearer ${adminToken.get()}` },
     body: form,

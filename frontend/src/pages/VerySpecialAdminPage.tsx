@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   adminApi,
   api,
+  uploadBibBackground,
   uploadCertificateBackground,
   uploadSiteLogo,
   type EventCreatePayload,
@@ -323,6 +324,9 @@ function EventSettings({ eventId }: { eventId: string }) {
   const [hasBg, setHasBg] = useState(false);
   const [bgBusy, setBgBusy] = useState(false);
   const [bgMsg, setBgMsg] = useState("");
+  const [hasBibBg, setHasBibBg] = useState(false);
+  const [bibBgBusy, setBibBgBusy] = useState(false);
+  const [bibBgMsg, setBibBgMsg] = useState("");
 
   useEffect(() => {
     api.listEvents().then((e) => {
@@ -332,7 +336,9 @@ function EventSettings({ eventId }: { eventId: string }) {
       setIncluded(ev?.tshirt_included ?? false);
       setOffset(String(ev?.certificate_offset ?? 0));
       setHasBg(ev?.has_certificate_background ?? false);
+      setHasBibBg(ev?.has_bib_background ?? false);
       setBgMsg("");
+      setBibBgMsg("");
       setSaved(false);
     });
   }, [eventId]);
@@ -349,6 +355,21 @@ function EventSettings({ eventId }: { eventId: string }) {
       setBgMsg(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBgBusy(false);
+    }
+  };
+
+  const uploadBibBg = async (file: File | undefined) => {
+    if (!file) return;
+    setBibBgBusy(true);
+    setBibBgMsg("");
+    try {
+      await uploadBibBackground(eventId, file);
+      setHasBibBg(true);
+      setBibBgMsg(t("admin.bibBgSaved"));
+    } catch (err) {
+      setBibBgMsg(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setBibBgBusy(false);
     }
   };
 
@@ -421,6 +442,19 @@ function EventSettings({ eventId }: { eventId: string }) {
         onChange={(e) => uploadBg(e.target.files?.[0])}
       />
       {bgMsg && <span className="hint"> {bgMsg}</span>}
+
+      <h3>{t("admin.bibBg")}</h3>
+      <p className="hint">
+        {t("admin.bibBgHint")}{" "}
+        {hasBibBg ? t("admin.certificateBgPresent") : t("admin.certificateBgNone")}
+      </p>
+      <input
+        type="file"
+        accept="image/png,image/jpeg"
+        disabled={bibBgBusy}
+        onChange={(e) => uploadBibBg(e.target.files?.[0])}
+      />
+      {bibBgMsg && <span className="hint"> {bibBgMsg}</span>}
     </>
   );
 }

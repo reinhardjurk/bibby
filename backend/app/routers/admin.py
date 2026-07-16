@@ -149,6 +149,29 @@ async def upload_certificate_background(
     return {"ok": True, "size": len(data)}
 
 
+# --- Startnummer-Hintergrund hochladen ------------------------------------
+@router.post("/events/{event_id}/bib-background")
+async def upload_bib_background(
+    event_id: uuid.UUID,
+    file: UploadFile = File(...),
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Hintergrundvorlage (Bild) für die Startnummer speichern."""
+    event = await session.get(Event, event_id)
+    if event is None:
+        raise HTTPException(404, "Event nicht gefunden")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(422, "Bitte ein Bild hochladen (PNG oder JPG).")
+    data = await file.read()
+    if len(data) > 8_000_000:
+        raise HTTPException(413, "Datei zu groß (max. 8 MB).")
+    event.bib_bg = data
+    event.bib_bg_mime = file.content_type
+    await session.commit()
+    return {"ok": True, "size": len(data)}
+
+
 # --- Kopf-Logo (global) ----------------------------------------------------
 @router.post("/site-logo")
 async def upload_site_logo(

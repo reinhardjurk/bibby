@@ -558,24 +558,47 @@ def render_bib_pdf(
     event_name: str,
     year: int,
     competition_title: str,
+    background: bytes | None = None,
+    background_mime: str | None = None,
 ) -> bytes:
     """Rendert die Startnummer als A5-PDF (quer). WeasyPrint wird erst hier
-    importiert, damit Pfade ohne PDF-Erzeugung die System-Libs nicht brauchen."""
+    importiert, damit Pfade ohne PDF-Erzeugung die System-Libs nicht brauchen.
+
+    Optional wird eine Hintergrundvorlage (Bild) formatfüllend hinterlegt; der
+    Text liegt mittig darüber."""
+    import base64
+    from html import escape
+
     from weasyprint import HTML
+
+    bg_css = ""
+    if background:
+        mime = background_mime or "image/png"
+        b64 = base64.b64encode(background).decode()
+        bg_css = (
+            f"background-image: url('data:{mime};base64,{b64}');"
+            "background-size: cover; background-position: center;"
+        )
 
     html = f"""
     <html><head><meta charset="utf-8"><style>
-      @page {{ size: A5 landscape; margin: 10mm; }}
-      body {{ font-family: Helvetica, Arial, sans-serif; text-align: center; color: #1c2430; }}
+      @page {{ size: A5 landscape; margin: 0; }}
+      html {{ height: 100%; }}
+      body {{
+        margin: 0; height: 100%; box-sizing: border-box; padding: 10mm;
+        font-family: Helvetica, Arial, sans-serif; text-align: center; color: #1c2430;
+        display: flex; flex-direction: column; justify-content: center;
+        {bg_css}
+      }}
       .event {{ font-size: 14pt; color: #6b7785; letter-spacing: 2px; text-transform: uppercase; }}
       .bib {{ font-size: 150pt; font-weight: 800; line-height: 1; margin: 8mm 0; color: #2f6df0; }}
       .name {{ font-size: 24pt; font-weight: 600; }}
       .comp {{ font-size: 14pt; color: #6b7785; margin-top: 4mm; }}
     </style></head><body>
-      <div class="event">{event_name} &middot; {year}</div>
+      <div class="event">{escape(event_name)} &middot; {year}</div>
       <div class="bib">{bib_number}</div>
-      <div class="name">{first_name} {last_name}</div>
-      <div class="comp">{competition_title}</div>
+      <div class="name">{escape(first_name)} {escape(last_name)}</div>
+      <div class="comp">{escape(competition_title)}</div>
     </body></html>
     """
     return HTML(string=html).write_pdf()

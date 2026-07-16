@@ -111,6 +111,8 @@ async def bib_pdf(token: str = Query(...), session: AsyncSession = Depends(get_s
         event_name=event.name,
         year=event.year,
         competition_title=services.competition_label(competition, reg.language),
+        background=event.bib_bg,
+        background_mime=event.bib_bg_mime,
     )
     return Response(
         content=pdf,
