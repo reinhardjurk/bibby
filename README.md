@@ -1,19 +1,49 @@
 # Bibby
 
-Anmelde-, Zeiterfassungs- und Ergebnissystem für ein **Rundenrennen**
-(Läufer melden sich für 1, 2 oder 3 Runden an). Serverless auf Scaleway,
-Python/FastAPI, React-SPA.
+Anmelde-, Zeiterfassungs- und Ergebnissystem für eine **jährliche
+Laufveranstaltung** (Gröbenzeller Familienlauf). Läufer melden sich für eine von
+mehreren **benannten Strecken** an (z. B. „3,3 km Running", „1 km Kinder"). Es
+gibt **kein Rundenkonzept** — die Zielzeit ist der Mittelwert aller Ziel­erfassungen
+einer Startnummer minus der Startzeit der Strecke.
+
+Serverless auf Scaleway, Backend **Python/FastAPI**, Frontend **React-SPA**.
+Live unter **https://anmeldung.run-bibby.de**.
 
 ```
-backend/    FastAPI-API (async SQLAlchemy), Alembic, Seed, Dockerfile
+backend/    FastAPI-API (async SQLAlchemy), Alembic-Migrationen, Seed, Dockerfile
 frontend/   React + Vite + TypeScript SPA (mehrsprachig de/en)
 db/         schema.sql (Referenz-DDL)
-infra/      Terraform für Scaleway
+infra/      Terraform/OpenTofu für Scaleway
+.github/    CI/CD-Workflows (Deploy + Terraform, manuell auslösbar)
 ```
 
-## Lokal komplett starten
+## Dokumentation
 
-Voraussetzung: **Docker** (für API + DB) und **Node** (für die SPA).
+| Datei | Inhalt |
+|---|---|
+| [`BENUTZERHANDBUCH.md`](BENUTZERHANDBUCH.md) | **Handbuch für das Team** (Empfang/Kassieren, Lauf-Admin, Sponsoren, SEPA) |
+| [`SPEC.md`](SPEC.md) | Vollständige technische Spezifikation (Datenmodell, Logik, API) |
+| [`CI-SETUP.md`](CI-SETUP.md) | Einrichtung von Deploy/Terraform über GitHub Actions (Secrets, Freigaben) |
+
+## Kernkonzepte
+
+- **Benannte Strecken statt Runden.** Zielzeit = Mittelwert aller nicht
+  ignorierten Erfassungen − Startzeit der Strecke. Fehlt die Startzeit → **DNF**
+  (häufigste Support-Ursache).
+- **Wertung je Strecke konfigurierbar:** Altersklassen-Schema (5-Jahres /
+  1-Jahres / keine) und Geschlechtswertung (ja/nein). Altersklassen werden
+  berechnet, nicht gepflegt.
+- **Zahlung ohne Online-PSP:** SEPA-Lastschrift (IBAN verschlüsselt, CSV-Export)
+  oder Barzahlung bei Abholung.
+- **PDFs:** Startnummer (A5 quer) und Urkunde (A4), beide mit optional
+  hochladbarer Event-Hintergrundvorlage.
+- **Sponsoren:** 5 gewichtete Klassen, Anzeige als Rotation oder Laufband.
+- **Laufzeit-Konfiguration** ohne Redeploy (Mail Test/Live, Mailtexte,
+  Sponsoren-Anzeige) über die `app_setting`-Tabelle.
+
+## Lokal starten
+
+Voraussetzung: **Docker** (API + DB) und **Node** (SPA).
 
 ### 1. API + Datenbank + Demo-Daten
 
@@ -21,9 +51,10 @@ Voraussetzung: **Docker** (für API + DB) und **Node** (für die SPA).
 docker compose up --build
 ```
 
-Das fährt PostgreSQL hoch, wendet die Alembic-Migration an, spielt
-Demo-Daten ein (Events 2025/2026, fünf Läufer mit Zeiten) und startet die API
-auf **http://localhost:8000** (Doku: `/docs`).
+Startet PostgreSQL, wendet die Alembic-Migrationen an, spielt Demo-Daten ein
+(zwei Events, mehrere Strecken, ein paar Läufer mit Zeiten, Admin-Login
+`admin@example.com` / `admin`) und startet die API auf
+**http://localhost:8000** (interaktive Doku: `/docs`).
 
 ### 2. Frontend
 
@@ -33,10 +64,9 @@ npm install        # einmalig
 npm run dev        # http://localhost:5173
 ```
 
-Die SPA zeigt jetzt:
-- **Anmeldung**: Event „Bibby Lauf (2026)" mit den drei Strecken im Dropdown
-- **Ergebnisse**: Event 2026 → „Mittel (2 Runden)" wählen → Anna, Björn, Carla
-  mit Zeiten; Anna trägt das Badge **„2. Teilnahme"**
+- **Anmeldung**: `/teilnahme`
+- **Ergebnisse**: `/teilnahme/ergebnisse`
+- **Team-Bereich** (Login erforderlich): `/team`
 
 ### Zurücksetzen
 
@@ -44,26 +74,42 @@ Die SPA zeigt jetzt:
 docker compose down -v   # löscht das DB-Volume; nächster Start seedet neu
 ```
 
-## Demo-Daten im Überblick
-
-| Startnr. | Läufer | Strecke | Ergebnis |
-|---|---|---|---|
-| 101 | Anna Berg | 2 Runden | Finisher (2. Teilnahme) |
-| 102 | Björn Carlsson | 2 Runden | Finisher |
-| 103 | Carla Diaz | 2 Runden | Finisher |
-| 201 | Dieter Egger | 3 Runden | Finisher |
-| 301 | Eva Fischer | 1 Runde | Finisher |
-
 ## Migrationen
 
+Additive Migrationen in `backend/alembic/versions/` (`ADD COLUMN`/`CREATE TABLE
+IF NOT EXISTS`, verträglich mit der `create_all`-Baseline `0001`).
+
 ```bash
-# im laufenden api-Container oder lokal mit gesetzter BIBBY_DATABASE_URL
-alembic revision --autogenerate -m "beschreibung"
+# lokal oder gegen Prod mit gesetzter BIBBY_DATABASE_URL
 alembic upgrade head
 ```
 
-Die Baseline (`0001_initial`) erzeugt alle Tabellen aus den Modellen; spätere
-Änderungen an `app/models.py` per Autogenerate.
+**Wichtig:** In Prod laufen Migrationen **nicht** automatisch beim
+Container-Start. Reihenfolge beim Ausrollen: **erst Migration, dann Deploy** (das
+neue Modell referenziert neue Spalten). Über die CI erledigt das der
+`Deploy`-Workflow mit `migrate: true`.
+
+## Deployment (browser-/teamfähig)
+
+Deploy und Terraform laufen über **GitHub Actions** (manuell auslösbar, mit
+Freigabe über die Environment `production`) — kein lokaler Rechner mit Secrets
+nötig. Details in [`CI-SETUP.md`](CI-SETUP.md).
+
+- **`Deploy`-Workflow**: Ziel `all | backend | frontend`, optional `migrate`.
+  Baut das Image (`linux/amd64`), pusht in die Scaleway-Registry, rollt den
+  Container neu aus (`scw container container redeploy` — Terraform rollt bei
+  gleichem `:latest`-Tag **nicht** neu aus), baut/synct die SPA.
+- **`Terraform`-Workflow**: `plan` / `apply` gegen den Scaleway-Remote-State.
+
+Als lokaler Fallback existiert `./deploy.sh [all|backend|frontend]`.
+
+## Lasttest
+
+```bash
+# aus backend/, gleiche Env wie Alembic
+python -m app.loadtest seed [N] [JAHR]   # Testdaten (@loadtest.de, Startnr. ab 90001)
+python -m app.loadtest clear             # entfernt Testdaten (matcht %@loadtest.%)
+```
 
 Details je Komponente in `backend/README.md`, `frontend/README.md`,
 `infra/README.md`.
