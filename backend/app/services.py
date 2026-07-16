@@ -401,6 +401,26 @@ def generate_mandate_reference(year: int) -> str:
 # ohne Redeploy. Ist kein Wert gesetzt, gilt der Env-Default aus settings.
 # =========================================================================
 MAIL_TEST_MODE_KEY = "mail_test_mode"
+# Betreff/Text der Anmeldebestätigung, zur Laufzeit editierbar (Special-Admin).
+# {link} im Text wird durch den persönlichen Verwaltungslink ersetzt.
+MAIL_TEXT_KEYS = {
+    "subject_de": "mail_subject_de",
+    "body_de": "mail_body_de",
+    "subject_en": "mail_subject_en",
+    "body_en": "mail_body_en",
+}
+DEFAULT_MAIL_TEXTS: dict[str, str] = {
+    "subject_de": "Deine Bibby-Anmeldung",
+    "body_de": (
+        "Danke für deine Anmeldung!\n\n"
+        "Deine Anmeldung kannst du hier jederzeit verwalten oder korrigieren:\n{link}\n"
+    ),
+    "subject_en": "Your Bibby registration",
+    "body_en": (
+        "Thank you for registering!\n\n"
+        "Manage or correct your registration anytime here:\n{link}\n"
+    ),
+}
 SPONSOR_TIERS_KEY = "sponsor_tiers"
 SPONSOR_DISPLAY_KEY = "sponsor_display"  # 'rotate' | 'marquee'
 SPONSOR_MARQUEE_KEY = "sponsor_marquee_seconds"  # Sekunden pro Laufband-Durchlauf
@@ -515,6 +535,23 @@ async def get_mail_test_mode(session: AsyncSession) -> bool:
     return stored == "true"
 
 
+async def get_mail_texts(session: AsyncSession) -> dict[str, str]:
+    """Effektive Betreff-/Textvorlagen (DB-Override vor Default), je Sprache."""
+    result: dict[str, str] = {}
+    for field, key in MAIL_TEXT_KEYS.items():
+        stored = await get_app_setting(session, key)
+        result[field] = stored if stored is not None else DEFAULT_MAIL_TEXTS[field]
+    return result
+
+
+async def set_mail_texts(session: AsyncSession, texts: dict[str, str]) -> None:
+    """Setzt nur die übergebenen Felder (subject_de/body_de/subject_en/body_en)."""
+    for field, key in MAIL_TEXT_KEYS.items():
+        value = texts.get(field)
+        if value is not None:
+            await set_app_setting(session, key, value)
+
+
 async def send_confirmation_email(
     registration: Registration, manage_token: str, session: AsyncSession
 ) -> None:
@@ -525,18 +562,12 @@ async def send_confirmation_email(
     aus app_setting gelesen (umschaltbar im Special-Admin).
     """
     link = f"{settings.public_base_url}/manage?token={manage_token}"
-    if registration.language == "en":
-        subject = "Your Bibby registration"
-        text = (
-            "Thank you for registering!\n\n"
-            f"Manage or correct your registration anytime here:\n{link}\n"
-        )
-    else:
-        subject = "Deine Bibby-Anmeldung"
-        text = (
-            "Danke für deine Anmeldung!\n\n"
-            f"Deine Anmeldung kannst du hier jederzeit verwalten oder korrigieren:\n{link}\n"
-        )
+    texts = await get_mail_texts(session)
+    lang = "en" if registration.language == "en" else "de"
+    subject = texts[f"subject_{lang}"]
+    # {link} durch den persönlichen Verwaltungslink ersetzen (str.replace, damit
+    # sonstige geschweifte Klammern im Text nicht als Format-Felder gedeutet werden).
+    text = texts[f"body_{lang}"].replace("{link}", link)
 
     test_mode = await get_mail_test_mode(session)
     try:

@@ -4,6 +4,7 @@ import {
   formatTime,
   type AdminRegistration,
   type MailSettings,
+  type MailTexts,
   type TimingRow,
 } from "../api";
 import { useI18n } from "../i18n";
@@ -52,6 +53,7 @@ function SpecialDashboard({ roles, lang }: { roles: string[]; lang: string }) {
       {eventId && <InternalResults eventId={eventId} lang={lang} />}
       {tim && eventId && <DeviceTokens eventId={eventId} />}
       <MailModeToggle roles={roles} />
+      {mng && <MailTextsEditor />}
       <BuildInfo />
     </>
   );
@@ -172,6 +174,71 @@ function MailModeToggle({ roles }: { roles: string[] }) {
           ) : (
             <p className="hint">{t("mail.adminOnly")}</p>
           )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Betreff + Text der Anmeldebestätigung (DE/EN) zur Laufzeit bearbeiten. */
+function MailTextsEditor() {
+  const { t } = useI18n();
+  const [texts, setTexts] = useState<MailTexts | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    adminApi.getMailTexts().then(setTexts).catch((e) => setErr(String(e)));
+  }, []);
+
+  const set = (patch: Partial<MailTexts>) => {
+    setTexts((cur) => (cur ? { ...cur, ...patch } : cur));
+    setMsg("");
+  };
+
+  const save = async () => {
+    if (!texts) return;
+    setBusy(true);
+    setMsg("");
+    setErr("");
+    try {
+      setTexts(await adminApi.setMailTexts(texts));
+      setMsg(t("mailText.saved"));
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card">
+      <h3>{t("mailText.title")}</h3>
+      <p className="hint">{t("mailText.hint")}</p>
+      {err && <p className="error">{err}</p>}
+      {texts && (
+        <>
+          <label>
+            {t("mailText.subjectDe")}
+            <input value={texts.subject_de} onChange={(e) => set({ subject_de: e.target.value })} />
+          </label>
+          <label>
+            {t("mailText.bodyDe")}
+            <textarea rows={5} value={texts.body_de} onChange={(e) => set({ body_de: e.target.value })} />
+          </label>
+          <label>
+            {t("mailText.subjectEn")}
+            <input value={texts.subject_en} onChange={(e) => set({ subject_en: e.target.value })} />
+          </label>
+          <label>
+            {t("mailText.bodyEn")}
+            <textarea rows={5} value={texts.body_en} onChange={(e) => set({ body_en: e.target.value })} />
+          </label>
+          <button className="primary" onClick={save} disabled={busy}>
+            {t("manage.save")}
+          </button>
+          {msg && <span className="hint"> {msg}</span>}
         </>
       )}
     </section>

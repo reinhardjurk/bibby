@@ -175,6 +175,16 @@ class MailModeUpdate(BaseModel):
     test_mode: bool
 
 
+class MailTexts(BaseModel):
+    """Betreff + Text der Anmeldebestätigung je Sprache. {link} im Text wird
+    durch den persönlichen Verwaltungslink ersetzt."""
+
+    subject_de: str = Field(min_length=1, max_length=200)
+    body_de: str = Field(min_length=1, max_length=5000)
+    subject_en: str = Field(min_length=1, max_length=200)
+    body_en: str = Field(min_length=1, max_length=5000)
+
+
 class BibReassign(BaseModel):
     competition_id: uuid.UUID
 

@@ -42,6 +42,7 @@ from ..schemas import (
     LoginRequest,
     MailModeUpdate,
     MailSettings,
+    MailTexts,
     ParticipantMerge,
     ResultList,
     SessionToken,
@@ -124,6 +125,26 @@ async def update_mail_settings(
         test_recipient=settings.mail_test_recipient,
         overridden=True,
     )
+
+
+# --- Mailvorlagen (Betreff + Text, DE/EN) ---------------------------------
+@router.get("/mail-texts", response_model=MailTexts)
+async def get_mail_texts(
+    _user=Depends(require_roles("admin", "race_office", "timing", "viewer")),
+    session: AsyncSession = Depends(get_session),
+) -> MailTexts:
+    return MailTexts(**await services.get_mail_texts(session))
+
+
+@router.patch("/mail-texts", response_model=MailTexts)
+async def update_mail_texts(
+    body: MailTexts,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> MailTexts:
+    await services.set_mail_texts(session, body.model_dump())
+    await session.commit()
+    return body
 
 
 # --- Urkunden-Hintergrund hochladen ---------------------------------------

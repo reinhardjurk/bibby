@@ -344,12 +344,25 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify({ test_mode: testMode }),
     }),
+  getMailTexts: () => adminReq<MailTexts>("/admin/mail-texts"),
+  setMailTexts: (texts: MailTexts) =>
+    adminReq<MailTexts>("/admin/mail-texts", {
+      method: "PATCH",
+      body: JSON.stringify(texts),
+    }),
 };
 
 export type MailSettings = {
   test_mode: boolean;
   test_recipient: string;
   overridden: boolean;
+};
+
+export type MailTexts = {
+  subject_de: string;
+  body_de: string;
+  subject_en: string;
+  body_en: string;
 };
 
 export type VersionInfo = { backend: string; db_schema: string | null };
