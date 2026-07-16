@@ -237,8 +237,13 @@ async def update_sponsor_display(
     if body.mode not in ("rotate", "marquee"):
         raise HTTPException(422, "mode muss 'rotate' oder 'marquee' sein")
     await services.set_sponsor_display(session, body.mode)
+    if body.marquee_seconds is not None:
+        await services.set_marquee_seconds(session, body.marquee_seconds)
     await session.commit()
-    return {"display": body.mode}
+    return {
+        "display": body.mode,
+        "marquee_seconds": await services.get_marquee_seconds(session),
+    }
 
 
 # --- Ergebnisdruck: Urkunden ----------------------------------------------

@@ -122,7 +122,7 @@ function Marquee({ data }: { data: SponsorsDto }) {
   const { t } = useI18n();
   // Track verdoppeln -> nahtlose Schleife bei translateX(-50%).
   const track = [...data.items, ...data.items];
-  const duration = Math.max(20, data.items.length * 6); // s
+  const duration = data.marquee_seconds; // Sekunden pro Durchlauf (konfigurierbar)
   return (
     <aside
       className="sponsors marquee"

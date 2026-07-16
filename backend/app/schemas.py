@@ -114,6 +114,7 @@ class SponsorTiersUpdate(BaseModel):
 
 class SponsorDisplayUpdate(BaseModel):
     mode: str  # 'rotate' | 'marquee'
+    marquee_seconds: int | None = None  # Sekunden pro Laufband-Durchlauf
 
 
 class SponsorUpdate(BaseModel):

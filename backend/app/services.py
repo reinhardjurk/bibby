@@ -403,6 +403,8 @@ def generate_mandate_reference(year: int) -> str:
 MAIL_TEST_MODE_KEY = "mail_test_mode"
 SPONSOR_TIERS_KEY = "sponsor_tiers"
 SPONSOR_DISPLAY_KEY = "sponsor_display"  # 'rotate' | 'marquee'
+SPONSOR_MARQUEE_KEY = "sponsor_marquee_seconds"  # Sekunden pro Laufband-Durchlauf
+DEFAULT_MARQUEE_SECONDS = 30
 # Zielhöhe, auf die hochgeladene Raster-Logos herunterskaliert werden (px).
 SPONSOR_MAX_IMAGE_HEIGHT = 400
 
@@ -458,6 +460,18 @@ async def get_sponsor_display(session: AsyncSession) -> str:
 
 async def set_sponsor_display(session: AsyncSession, mode: str) -> None:
     await set_app_setting(session, SPONSOR_DISPLAY_KEY, mode)
+
+
+async def get_marquee_seconds(session: AsyncSession) -> int:
+    raw = await get_app_setting(session, SPONSOR_MARQUEE_KEY)
+    try:
+        return min(300, max(5, int(raw))) if raw else DEFAULT_MARQUEE_SECONDS
+    except (ValueError, TypeError):
+        return DEFAULT_MARQUEE_SECONDS
+
+
+async def set_marquee_seconds(session: AsyncSession, seconds: int) -> None:
+    await set_app_setting(session, SPONSOR_MARQUEE_KEY, str(min(300, max(5, seconds))))
 
 
 def normalize_url(url: str | None) -> str | None:

@@ -323,10 +323,10 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify({ tiers }),
     }),
-  updateSponsorDisplay: (mode: string) =>
-    adminReq<{ display: string }>("/admin/sponsor-display", {
+  updateSponsorDisplay: (mode: string, marqueeSeconds?: number) =>
+    adminReq<{ display: string; marquee_seconds: number }>("/admin/sponsor-display", {
       method: "PATCH",
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({ mode, marquee_seconds: marqueeSeconds }),
     }),
   updateSponsor: (id: string, body: { name?: string; url?: string }) =>
     adminReq(`/admin/sponsors/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
@@ -355,6 +355,7 @@ export type SponsorTierCfg = { weight: number; height: number };
 export type SponsorsDto = {
   tiers: Record<string, SponsorTierCfg>;
   display: "rotate" | "marquee";
+  marquee_seconds: number;
   items: SponsorDto[];
 };
 

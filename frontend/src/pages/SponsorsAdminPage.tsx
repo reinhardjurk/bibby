@@ -46,7 +46,7 @@ function SponsorsDashboard() {
   return (
     <>
       {error && <p className="error">{error}</p>}
-      <DisplayMode current={data.display} onSaved={reload} />
+      <DisplayMode current={data.display} seconds={data.marquee_seconds} onSaved={reload} />
       <TierConfig tiers={data.tiers} onSaved={reload} />
       <UploadSponsor onUploaded={reload} />
       <SponsorList data={data} onChanged={reload} />
@@ -54,16 +54,24 @@ function SponsorsDashboard() {
   );
 }
 
-function DisplayMode({ current, onSaved }: { current: string; onSaved: () => void }) {
+function DisplayMode({
+  current,
+  seconds,
+  onSaved,
+}: {
+  current: string;
+  seconds: number;
+  onSaved: () => void;
+}) {
   const { t } = useI18n();
   const [mode, setMode] = useState(current);
+  const [sec, setSec] = useState(String(seconds));
   const [error, setError] = useState("");
 
-  const change = async (m: string) => {
-    setMode(m);
+  const save = async (m: string, s: number) => {
     setError("");
     try {
-      await adminApi.updateSponsorDisplay(m);
+      await adminApi.updateSponsorDisplay(m, s);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common.error"));
@@ -75,11 +83,32 @@ function DisplayMode({ current, onSaved }: { current: string; onSaved: () => voi
       <h3>{t("sponsors.display")}</h3>
       <label>
         {t("sponsors.displayMode")}
-        <select value={mode} onChange={(e) => change(e.target.value)}>
+        <select
+          value={mode}
+          onChange={(e) => {
+            setMode(e.target.value);
+            save(e.target.value, Number(sec));
+          }}
+        >
           <option value="rotate">{t("sponsors.displayRotate")}</option>
           <option value="marquee">{t("sponsors.displayMarquee")}</option>
         </select>
       </label>
+      {mode === "marquee" && (
+        <label>
+          {t("sponsors.marqueeSpeed")}
+          <input
+            type="number"
+            min={5}
+            max={300}
+            style={{ width: 110 }}
+            value={sec}
+            onChange={(e) => setSec(e.target.value)}
+            onBlur={() => save(mode, Number(sec) || 30)}
+          />
+        </label>
+      )}
+      {mode === "marquee" && <p className="hint">{t("sponsors.marqueeSpeedHint")}</p>}
       {error && <p className="error">{error}</p>}
     </>
   );
