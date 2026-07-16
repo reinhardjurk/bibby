@@ -34,7 +34,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: opentofu/setup-opentofu@v1
 
       # terraform.tfvars kommt komplett aus einem Secret (enthält auch die

@@ -37,7 +37,7 @@ jobs:
       SCW_DEFAULT_PROJECT_ID: ${{ vars.SCW_DEFAULT_PROJECT_ID }}
       SCW_DEFAULT_ORGANIZATION_ID: ${{ vars.SCW_DEFAULT_ORGANIZATION_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build-Kennung setzen
         run: echo "BUILD=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
@@ -45,7 +45,7 @@ jobs:
       # --- Migrationen (vor dem Backend-Deploy) ---------------------------
       - name: Python einrichten
         if: ${{ inputs.migrate && inputs.target != 'frontend' }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Migrationen einspielen
@@ -82,7 +82,7 @@ jobs:
       # --- Frontend: SPA bauen + hochladen --------------------------------
       - name: Node einrichten
         if: ${{ inputs.target != 'backend' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
       - name: SPA bauen + hochladen
