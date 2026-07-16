@@ -20,7 +20,7 @@ export function SponsorsAdminPage() {
   if (!authed) return <LoginCard onAuthed={onAuthed} />;
 
   return (
-    <AdminChrome title={t("sponsors.title")} roles={roles} logout={logout}>
+    <AdminChrome title={t("sponsors.title")} roles={roles} logout={logout} allow={["sponsor_management"]}>
       <SponsorsDashboard />
     </AdminChrome>
   );

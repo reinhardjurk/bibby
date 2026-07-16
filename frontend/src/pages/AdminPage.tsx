@@ -17,7 +17,7 @@ export function AdminPage() {
   if (!authed) return <LoginCard onAuthed={onAuthed} />;
 
   return (
-    <AdminChrome title={t("admin.title")} roles={roles} logout={logout}>
+    <AdminChrome title={t("admin.title")} roles={roles} logout={logout} allow={["race_office"]}>
       <AdminSearch canManage={canManageRoles(roles)} lang={lang} />
     </AdminChrome>
   );

@@ -34,7 +34,7 @@ export function ResultsPrintPage() {
   if (!authed) return <LoginCard onAuthed={onAuthed} />;
 
   return (
-    <AdminChrome title={t("resultsprint.title")} roles={roles} logout={logout}>
+    <AdminChrome title={t("resultsprint.title")} roles={roles} logout={logout} allow={["race_office"]}>
       <ResultsPrintDashboard />
     </AdminChrome>
   );

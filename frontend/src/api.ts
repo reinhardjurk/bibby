@@ -126,11 +126,45 @@ export const api = {
 // --- Admin -----------------------------------------------------------------
 const ADMIN_TOKEN_KEY = "bibby.admin";
 
+const AUTH_EVENT = "bibby-auth";
 export const adminToken = {
   get: () => localStorage.getItem(ADMIN_TOKEN_KEY) || "",
-  set: (t: string) => localStorage.setItem(ADMIN_TOKEN_KEY, t),
-  clear: () => localStorage.removeItem(ADMIN_TOKEN_KEY),
+  set: (t: string) => {
+    localStorage.setItem(ADMIN_TOKEN_KEY, t);
+    window.dispatchEvent(new Event(AUTH_EVENT));
+  },
+  clear: () => {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    window.dispatchEvent(new Event(AUTH_EVENT));
+  },
 };
+
+/** Alle vergebbaren Rollen (für die Benutzerverwaltung). admin = alles. */
+export const STAFF_ROLES = [
+  "admin",
+  "race_office",
+  "timing",
+  "sponsor_management",
+  "sepa",
+  "viewer",
+] as const;
+
+/** Welche Rollen dürfen welchen Staff-Tab sehen (admin darf immer alles). */
+export const TAB_ACCESS: Record<string, string[]> = {
+  "/team": ["race_office"],
+  "/team/ergebnisdruck": ["race_office"],
+  "/team/zeiterfassung": ["timing", "race_office"],
+  "/team/special": ["race_office", "timing"],
+  "/team/sponsoren": ["sponsor_management"],
+  "/team/veryspecial": ["race_office"],
+  "/team/sepa": ["sepa"],
+};
+
+export function canAccessTab(roles: string[], path: string): boolean {
+  if (roles.includes("admin")) return true;
+  const allowed = TAB_ACCESS[path] ?? [];
+  return allowed.some((r) => roles.includes(r));
+}
 
 function adminReq<T>(path: string, init?: RequestInit): Promise<T> {
   return req<T>(path, {

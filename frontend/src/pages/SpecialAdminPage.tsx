@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   adminApi,
   formatTime,
+  STAFF_ROLES,
   type AdminRegistration,
   type AdminUser,
   type MailSettings,
@@ -29,7 +30,7 @@ export function SpecialAdminPage() {
   if (!authed) return <LoginCard onAuthed={onAuthed} />;
 
   return (
-    <AdminChrome title={t("special.title")} roles={roles} logout={logout}>
+    <AdminChrome title={t("special.title")} roles={roles} logout={logout} allow={["race_office", "timing"]}>
       <SpecialDashboard roles={roles} lang={lang} />
     </AdminChrome>
   );
@@ -247,7 +248,7 @@ function MailTextsEditor() {
   );
 }
 
-const ALL_ROLES = ["admin", "race_office", "timing", "viewer"] as const;
+const ALL_ROLES = STAFF_ROLES;
 
 /** Benutzerverwaltung (nur admin): Nutzer anlegen, Rollen/aktiv setzen, Passwort
  *  zuruecksetzen. Der eigene Zugang laesst sich nicht deaktivieren/entadminen. */

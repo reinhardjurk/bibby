@@ -96,13 +96,19 @@ export function AdminChrome({
   roles,
   logout,
   children,
+  allow,
 }: {
   title: string;
   roles: string[];
   logout: () => void;
   children: ReactNode;
+  /** Rollen (zusätzlich zu admin), die diesen Bereich sehen dürfen. Fehlt die
+   *  Berechtigung, wird statt des Inhalts ein Hinweis gezeigt. */
+  allow?: string[];
 }) {
   const { t } = useI18n();
+  const permitted =
+    !allow || roles.includes("admin") || allow.some((r) => roles.includes(r));
   return (
     <div className="card">
       <div className="admin-head">
@@ -112,9 +118,38 @@ export function AdminChrome({
           <button onClick={logout}>{t("admin.logout")}</button>
         </div>
       </div>
-      {children}
+      {permitted ? children : <p className="hint">{t("admin.noTabAccess")}</p>}
     </div>
   );
+}
+
+/** Rollen des aktuell eingeloggten Staff-Nutzers für die Navigation. Reagiert
+ *  auf Login/Logout (bibby-auth-Event), damit sich die Tab-Leiste live anpasst. */
+export function useStaffRoles(): { authed: boolean; roles: string[] } {
+  const [state, setState] = useState<{ authed: boolean; roles: string[] }>({
+    authed: false,
+    roles: [],
+  });
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      if (!adminToken.get()) {
+        if (alive) setState({ authed: false, roles: [] });
+        return;
+      }
+      adminApi
+        .me()
+        .then((s) => alive && setState({ authed: true, roles: s.roles }))
+        .catch(() => alive && setState({ authed: false, roles: [] }));
+    };
+    load();
+    window.addEventListener("bibby-auth", load);
+    return () => {
+      alive = false;
+      window.removeEventListener("bibby-auth", load);
+    };
+  }, []);
+  return state;
 }
 
 export const canManage = (roles: string[]) =>

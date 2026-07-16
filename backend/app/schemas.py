@@ -185,7 +185,14 @@ class MailTexts(BaseModel):
     body_en: str = Field(min_length=1, max_length=5000)
 
 
-ALLOWED_ROLES = ("admin", "race_office", "timing", "viewer")
+ALLOWED_ROLES = (
+    "admin",
+    "race_office",
+    "timing",
+    "sponsor_management",
+    "sepa",
+    "viewer",
+)
 
 
 class UserOut(BaseModel):

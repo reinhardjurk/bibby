@@ -3,7 +3,6 @@ import { downloadSepaExport } from "../api";
 import { useI18n } from "../i18n";
 import {
   AdminChrome,
-  canManage as canManageRoles,
   EventSelect,
   LoginCard,
   useAdminSession,
@@ -18,20 +17,19 @@ export function SepaAdminPage() {
   if (!authed) return <LoginCard onAuthed={onAuthed} />;
 
   return (
-    <AdminChrome title={t("sepa.title")} roles={roles} logout={logout}>
-      <SepaDashboard roles={roles} />
+    <AdminChrome title={t("sepa.title")} roles={roles} logout={logout} allow={["sepa"]}>
+      <SepaDashboard />
     </AdminChrome>
   );
 }
 
-function SepaDashboard({ roles }: { roles: string[] }) {
+function SepaDashboard() {
   const { events, eventId, setEventId } = useEventSelector();
-  const mng = canManageRoles(roles);
 
   return (
     <>
       <EventSelect events={events} eventId={eventId} onChange={setEventId} />
-      {mng && eventId && <SepaExport eventId={eventId} />}
+      {eventId && <SepaExport eventId={eventId} />}
     </>
   );
 }

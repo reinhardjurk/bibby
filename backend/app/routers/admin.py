@@ -329,7 +329,7 @@ async def upload_sponsor(
     name: str = Form(""),
     url: str = Form(""),
     file: UploadFile = File(...),
-    _user=Depends(require_roles("race_office")),
+    _user=Depends(require_roles("sponsor_management")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Logo in die Klasse `tier` (1..5) hochladen (optional mit Ziel-URL)."""
@@ -357,7 +357,7 @@ async def upload_sponsor(
 async def update_sponsor(
     sponsor_id: uuid.UUID,
     body: SponsorUpdate,
-    _user=Depends(require_roles("race_office")),
+    _user=Depends(require_roles("sponsor_management")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Name und/oder Ziel-URL eines bestehenden Logos ändern."""
@@ -375,7 +375,7 @@ async def update_sponsor(
 @router.delete("/sponsors/{sponsor_id}")
 async def delete_sponsor(
     sponsor_id: uuid.UUID,
-    _user=Depends(require_roles("race_office")),
+    _user=Depends(require_roles("sponsor_management")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     sponsor = await session.get(Sponsor, sponsor_id)
@@ -389,7 +389,7 @@ async def delete_sponsor(
 @router.patch("/sponsor-tiers")
 async def update_sponsor_tiers(
     body: SponsorTiersUpdate,
-    _user=Depends(require_roles("race_office")),
+    _user=Depends(require_roles("sponsor_management")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Gewicht (Zeitanteil) und Anzeigehöhe je Klasse setzen."""
@@ -403,7 +403,7 @@ async def update_sponsor_tiers(
 @router.patch("/sponsor-display")
 async def update_sponsor_display(
     body: SponsorDisplayUpdate,
-    _user=Depends(require_roles("race_office")),
+    _user=Depends(require_roles("sponsor_management")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Anzeigemodus der Sponsorenleiste: 'rotate' (ein Logo rotierend) oder
@@ -967,7 +967,7 @@ async def mark_paid(
 async def sepa_export(
     event_id: uuid.UUID,
     include_exported: bool = False,
-    _user=Depends(require_roles("race_office")),
+    _user=Depends(require_roles("sepa")),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """CSV der offenen SEPA-Lastschriften (Name, IBAN, Betrag). Standardmäßig nur

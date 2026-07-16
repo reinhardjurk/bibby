@@ -32,14 +32,18 @@ Team-Zugänge legt ein **Administrator** im Tab **Special-Admin** unter
 
 ### Rollen (wer darf was)
 
-| Rolle | Darf |
-|---|---|
-| **admin** | alles (inkl. Event löschen, Mailversand auf „Live" schalten) |
-| **race_office** | Anmeldungen, Startnummern, Zahlungen, Events/Strecken, SEPA, Sponsoren, Urkunden |
-| **timing** | Zeiten erfassen/korrigieren, Zeitnahme-Geräte |
-| **viewer** | nur ansehen/exportieren |
+| Rolle | Darf | Sichtbare Tabs |
+|---|---|---|
+| **admin** | alles (inkl. Event löschen, Mailversand auf „Live" schalten, Benutzerverwaltung) | alle |
+| **race_office** | Anmeldungen, Startnummern, Zahlungen, Events/Strecken, Urkunden, Renntag-Betrieb | Admin, Ergebnisdruck, Zeiterfassung, Special-Admin, Events |
+| **timing** | Zeiten erfassen/korrigieren, Zeitnahme-Geräte | Zeiterfassung, Special-Admin |
+| **sponsor_management** | Sponsorenlogos verwalten | Sponsoren |
+| **sepa** | SEPA-Einzugsliste exportieren | SEPA |
+| **viewer** | (reine Lese-Rolle) | – |
 
-Wenn ein Button oder ein Tab bei dir fehlt, hat dein Zugang die nötige Rolle
+**Die Tabs sind rollenabhängig:** Du siehst nur die Tabs, für die dein Zugang
+eine Rolle hat (admin sieht alle). Ein Nutzer kann mehrere Rollen haben — z. B.
+`race_office` **und** `sepa`. Fehlt dir ein Tab, hat dein Zugang die nötige Rolle
 nicht.
 
 ### Ganz unten auf jeder Seite
@@ -173,10 +177,11 @@ Ebenfalls im Tab **Special-Admin**, ganz unten (nur mit Rolle **admin**
 sichtbar), verwaltest du die Team-Zugänge:
 
 - **Neuen Benutzer anlegen:** E-Mail, Name, Passwort (mind. 6 Zeichen) und die
-  gewünschten **Rollen** per Häkchen. Für den Empfang/Kassieren, Sponsoren und
-  SEPA genügt **Wettkampfbüro** (`race_office`); für die Zeitnahme
-  **Zeitnahme** (`timing`); reine Zuschauer bekommen **Nur lesen** (`viewer`).
-  Mehrere Rollen sind möglich.
+  gewünschten **Rollen** per Häkchen. Faustregel: Empfang/Kassieren, Ergebnisdruck
+  und Renntag-Betrieb → **Wettkampfbüro** (`race_office`); Zeitnahme →
+  **Zeitnahme** (`timing`); reine Sponsoren-Betreuung → **Sponsoren**
+  (`sponsor_management`); Finanz/Lastschrift → **SEPA** (`sepa`). Mehrere Rollen
+  sind möglich (z. B. jemand mit `race_office` **und** `sepa`).
 - **Rollen ändern / deaktivieren:** In der Liste kannst du je Nutzer die
   Rollen-Häkchen anpassen, den Zugang **aktiv/inaktiv** schalten und ein
   **neues Passwort** setzen — dann **Speichern**.
@@ -184,8 +189,8 @@ sichtbar), verwaltest du die Team-Zugänge:
   deaktivieren noch dir selbst die Admin-Rolle entziehen.
 
 **Rollenübersicht:** Admin (alles) · Wettkampfbüro (Anmeldungen, Startnummern,
-Zahlungen, Events, SEPA, Sponsoren, Urkunden) · Zeitnahme (Zeiten & Geräte) ·
-Nur lesen (ansehen/exportieren).
+Zahlungen, Events, Urkunden, Renntag) · Zeitnahme (Zeiten & Geräte) · Sponsoren
+(nur Sponsoren-Tab) · SEPA (nur SEPA-Tab) · Nur lesen.
 
 ### 2.3 Tab „Ergebnisdruck" — Urkunden
 
@@ -212,7 +217,7 @@ Downloads sind PDFs.
 
 ## Kapitel 3 — Sponsorenverwaltung
 
-> **Tab: Sponsoren** · benötigt Rolle **race_office** (oder admin).
+> **Tab: Sponsoren** · benötigt Rolle **sponsor_management** (oder admin).
 
 Die Sponsorenleiste erscheint automatisch **oben und unten** auf der
 Anmeldeseite und der Teilnehmer-Detailseite. Es gibt **5 Klassen** (1 = größte
@@ -257,7 +262,7 @@ In der Liste kannst du je Sponsor **Name und URL bearbeiten** oder den Eintrag
 
 ## Kapitel 4 — SEPA-Verwaltung
 
-> **Tab: SEPA** · benötigt Rolle **race_office** (oder admin).
+> **Tab: SEPA** · benötigt Rolle **sepa** (oder admin).
 
 Teilnehmer, die bei der Anmeldung **SEPA-Lastschrift** gewählt haben, haben eine
 verschlüsselt gespeicherte IBAN und ein Mandat hinterlegt. Über diesen Tab

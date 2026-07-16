@@ -271,7 +271,8 @@ class UserRole(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "role IN ('admin','race_office','timing','viewer')", name="ck_user_role"
+            "role IN ('admin','race_office','timing','sponsor_management','sepa','viewer')",
+            name="ck_user_role",
         ),
     )
 

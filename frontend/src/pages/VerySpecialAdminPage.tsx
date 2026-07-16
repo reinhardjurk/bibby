@@ -26,7 +26,7 @@ export function VerySpecialAdminPage() {
   if (!authed) return <LoginCard onAuthed={onAuthed} />;
 
   return (
-    <AdminChrome title={t("veryspecial.title")} roles={roles} logout={logout}>
+    <AdminChrome title={t("veryspecial.title")} roles={roles} logout={logout} allow={["race_office"]}>
       <EventMgmt roles={roles} lang={lang} />
     </AdminChrome>
   );
