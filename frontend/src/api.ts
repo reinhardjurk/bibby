@@ -114,6 +114,8 @@ export const api = {
   getResults: (eventId: string, competitionId: string) =>
     req<ResultList>(`/events/${eventId}/results?competition_id=${competitionId}`),
 
+  /** Globales Kopf-Logo (Bild; 404 wenn keins gesetzt). */
+  siteLogoUrl: () => `${BASE}/site-logo`,
   /** Nur Metadaten (kein Bild) – klein und schnell. */
   listSponsors: () => req<SponsorsDto>("/sponsors"),
   /** Bild wird lazy vom <img> geladen und ist langlebig gecacht. */
@@ -317,6 +319,7 @@ export const adminApi = {
       body: JSON.stringify({ absolute_time: absoluteTime }),
     }),
   version: () => req<VersionInfo>("/version"),
+  deleteSiteLogo: () => adminReq("/admin/site-logo", { method: "DELETE" }),
   deleteSponsor: (id: string) => adminReq(`/admin/sponsors/${id}`, { method: "DELETE" }),
   updateSponsorTiers: (tiers: Record<string, SponsorTierCfg>) =>
     adminReq<Record<string, SponsorTierCfg>>("/admin/sponsor-tiers", {
@@ -444,6 +447,22 @@ export function downloadCertificateByBib(
     background: String(background),
   }).toString();
   return authedBlob(`${BASE}/admin/events/${eventId}/certificate?${q}`);
+}
+
+/** Globales Kopf-Logo hochladen (Multipart, mit Auth). */
+export async function uploadSiteLogo(file: File): Promise<{ ok: boolean }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE}/admin/site-logo`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${adminToken.get()}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error((d as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 /** Sponsorenlogo in eine Klasse (1..5) hochladen (Multipart, mit Auth). */

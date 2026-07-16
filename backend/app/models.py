@@ -301,6 +301,20 @@ class Sponsor(Base):
     __table_args__ = (CheckConstraint("tier BETWEEN 1 AND 5", name="ck_sponsor_tier"),)
 
 
+class SiteAsset(Base):
+    """Globale Bild-Assets (Schlüssel/Wert). Aktuell: key='logo' = Kopf-Logo,
+    das oben auf Anmelde- und Manage-Seite angezeigt wird."""
+
+    __tablename__ = "site_asset"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    image: Mapped[bytes] = mapped_column(LargeBinary)
+    mime: Mapped[str] = mapped_column(String)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class AppSetting(Base):
     """Zur Laufzeit umschaltbare Konfiguration (key/value), z. B. der
     Mail-Testmodus. Überschreibt – wenn gesetzt – den Env-Default aus settings."""

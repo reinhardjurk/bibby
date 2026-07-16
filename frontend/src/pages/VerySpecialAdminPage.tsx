@@ -1,5 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { adminApi, api, uploadCertificateBackground, type EventCreatePayload } from "../api";
+import {
+  adminApi,
+  api,
+  uploadCertificateBackground,
+  uploadSiteLogo,
+  type EventCreatePayload,
+} from "../api";
 import { useI18n } from "../i18n";
 import {
   AdminChrome,
@@ -47,6 +53,7 @@ function EventMgmt({ roles, lang }: { roles: string[]; lang: string }) {
 
   return (
     <>
+      {mng && <SiteLogoAdmin />}
       {mng && <NewEvent onCreated={(id) => loadEvents(id)} />}
       {error && <p className="error">{error}</p>}
 
@@ -81,6 +88,76 @@ const emptyComp = (): CompRow => ({
   scheme: "five",
   genderScoring: true,
 });
+
+/** Globales Kopf-Logo hochladen/entfernen. Zeigt oben mittig auf Anmelde- und
+ *  Detailseite an. Bild wird serverseitig normalisiert (max. Kante 400px). */
+function SiteLogoAdmin() {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [v, setV] = useState(0); // Cache-Buster für die Vorschau
+
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      await uploadSiteLogo(file);
+      setV((x) => x + 1);
+      setMsg(t("admin.siteLogoSaved"));
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm(t("admin.siteLogoDeleteConfirm"))) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      await adminApi.deleteSiteLogo();
+      setV((x) => x + 1);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>{t("admin.siteLogo")}</h2>
+      <p className="hint">{t("admin.siteLogoHint")}</p>
+      <img
+        key={v}
+        className="site-logo"
+        style={{ margin: "0 auto" }}
+        src={`${api.siteLogoUrl()}?v=${v}`}
+        alt=""
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.display = "none";
+        }}
+      />
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        disabled={busy}
+        onChange={(e) => {
+          upload(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+      <div className="row">
+        <button type="button" onClick={remove} disabled={busy}>
+          {t("admin.siteLogoDelete")}
+        </button>
+        {msg && <span className="hint" style={{ alignSelf: "center" }}>{msg}</span>}
+      </div>
+    </div>
+  );
+}
 
 function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
   const { t } = useI18n();

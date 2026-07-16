@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type CompetitionDto, type EventDto, type RegistrationOut } from "../api";
+import { SiteLogo } from "../components/SiteLogo";
 import { SponsorBar } from "../components/SponsorBar";
 import { TeamInput } from "../components/TeamInput";
 import { useI18n } from "../i18n";
@@ -75,6 +76,7 @@ export function RegisterPage() {
     const link = `${window.location.origin}/manage?token=${result.manage_token}`;
     return (
       <>
+      <SiteLogo />
       <SponsorBar />
       <div className="card">
         <p className="success">{t("register.success")}</p>
@@ -108,6 +110,7 @@ export function RegisterPage() {
 
   return (
     <>
+    <SiteLogo />
     <SponsorBar />
     <form className="card" onSubmit={submit}>
       <h2>{t("register.heading")}</h2>

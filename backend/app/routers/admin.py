@@ -25,6 +25,7 @@ from ..models import (
     Participant,
     Payment,
     Registration,
+    SiteAsset,
     Sponsor,
     UserRole,
 )
@@ -146,6 +147,42 @@ async def upload_certificate_background(
     event.certificate_bg_mime = file.content_type
     await session.commit()
     return {"ok": True, "size": len(data)}
+
+
+# --- Kopf-Logo (global) ----------------------------------------------------
+@router.post("/site-logo")
+async def upload_site_logo(
+    file: UploadFile = File(...),
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Globales Kopf-Logo setzen (Anmelde- + Manage-Seite)."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(422, "Bitte ein Bild hochladen (PNG, JPG oder SVG).")
+    data = await file.read()
+    if len(data) > 2_000_000:
+        raise HTTPException(413, "Datei zu groß (max. 2 MB).")
+    data, mime = services.normalize_logo(data, file.content_type)
+    asset = await session.get(SiteAsset, "logo")
+    if asset is None:
+        session.add(SiteAsset(key="logo", image=data, mime=mime))
+    else:
+        asset.image = data
+        asset.mime = mime
+    await session.commit()
+    return {"ok": True, "size": len(data)}
+
+
+@router.delete("/site-logo")
+async def delete_site_logo(
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    asset = await session.get(SiteAsset, "logo")
+    if asset is not None:
+        await session.delete(asset)
+        await session.commit()
+    return {"ok": True}
 
 
 # --- Sponsoren (5 Klassen) ------------------------------------------------

@@ -4,19 +4,32 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..db import get_session
-from ..models import Competition, Event, Registration
+from ..models import Competition, Event, Registration, SiteAsset
 
 router = APIRouter(tags=["events"])
 
 
 def event_tshirt_options(event: Event) -> list[str]:
     return event.tshirt_options or settings.default_tshirt_options
+
+
+@router.get("/site-logo")
+async def site_logo(session: AsyncSession = Depends(get_session)) -> Response:
+    """Kopf-Logo (global). 404, wenn keins hinterlegt ist."""
+    asset = await session.get(SiteAsset, "logo")
+    if asset is None:
+        raise HTTPException(404, "Kein Logo hinterlegt")
+    return Response(
+        content=asset.image,
+        media_type=asset.mime,
+        headers={"Cache-Control": "public, max-age=600"},  # ersetzbar -> kurz cachen
+    )
 
 
 @router.get("/teams")
