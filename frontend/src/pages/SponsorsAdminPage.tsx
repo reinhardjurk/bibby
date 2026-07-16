@@ -45,9 +45,41 @@ function SponsorsDashboard() {
   return (
     <>
       {error && <p className="error">{error}</p>}
+      <DisplayMode current={data.display} onSaved={reload} />
       <TierConfig tiers={data.tiers} onSaved={reload} />
       <UploadSponsor onUploaded={reload} />
       <SponsorList data={data} onChanged={reload} />
+    </>
+  );
+}
+
+function DisplayMode({ current, onSaved }: { current: string; onSaved: () => void }) {
+  const { t } = useI18n();
+  const [mode, setMode] = useState(current);
+  const [error, setError] = useState("");
+
+  const change = async (m: string) => {
+    setMode(m);
+    setError("");
+    try {
+      await adminApi.updateSponsorDisplay(m);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common.error"));
+    }
+  };
+
+  return (
+    <>
+      <h3>{t("sponsors.display")}</h3>
+      <label>
+        {t("sponsors.displayMode")}
+        <select value={mode} onChange={(e) => change(e.target.value)}>
+          <option value="rotate">{t("sponsors.displayRotate")}</option>
+          <option value="marquee">{t("sponsors.displayMarquee")}</option>
+        </select>
+      </label>
+      {error && <p className="error">{error}</p>}
     </>
   );
 }

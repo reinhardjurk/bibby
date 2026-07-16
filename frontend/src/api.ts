@@ -323,6 +323,11 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify({ tiers }),
     }),
+  updateSponsorDisplay: (mode: string) =>
+    adminReq<{ display: string }>("/admin/sponsor-display", {
+      method: "PATCH",
+      body: JSON.stringify({ mode }),
+    }),
   certificateGroups: (eventId: string, competitionId: string) =>
     adminReq<CertificateGroup[]>(
       `/admin/events/${eventId}/competitions/${competitionId}/certificate-groups`
@@ -347,6 +352,7 @@ export type SponsorDto = { id: string; tier: number; name: string | null };
 export type SponsorTierCfg = { weight: number; height: number };
 export type SponsorsDto = {
   tiers: Record<string, SponsorTierCfg>;
+  display: "rotate" | "marquee";
   items: SponsorDto[];
 };
 

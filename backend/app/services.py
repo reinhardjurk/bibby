@@ -402,6 +402,9 @@ def generate_mandate_reference(year: int) -> str:
 # =========================================================================
 MAIL_TEST_MODE_KEY = "mail_test_mode"
 SPONSOR_TIERS_KEY = "sponsor_tiers"
+SPONSOR_DISPLAY_KEY = "sponsor_display"  # 'rotate' | 'marquee'
+# Zielhöhe, auf die hochgeladene Raster-Logos herunterskaliert werden (px).
+SPONSOR_MAX_IMAGE_HEIGHT = 400
 
 # Je Sponsorenklasse: weight = Zeitanteil in der Rotation, height = MAX-Höhe (px).
 # Das Logo läuft über die volle Breite; die Höhe deckelt es (kleine Klassen ->
@@ -446,6 +449,38 @@ async def get_sponsor_tiers(session: AsyncSession) -> dict[str, dict[str, int]]:
 
 async def set_sponsor_tiers(session: AsyncSession, tiers: dict) -> None:
     await set_app_setting(session, SPONSOR_TIERS_KEY, json.dumps(tiers))
+
+
+async def get_sponsor_display(session: AsyncSession) -> str:
+    mode = await get_app_setting(session, SPONSOR_DISPLAY_KEY)
+    return mode if mode in ("rotate", "marquee") else "rotate"
+
+
+async def set_sponsor_display(session: AsyncSession, mode: str) -> None:
+    await set_app_setting(session, SPONSOR_DISPLAY_KEY, mode)
+
+
+def normalize_logo(data: bytes, mime: str) -> tuple[bytes, str]:
+    """Raster-Logos auf eine einheitliche Höhe herunterskalieren (kleinere
+    Dateien, konsistente Qualität). SVG bleibt vektoriell unverändert. Bei
+    Fehlern wird das Original beibehalten."""
+    if mime == "image/svg+xml":
+        return data, mime
+    try:
+        import io
+
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(data))
+        img.load()
+        if img.height > SPONSOR_MAX_IMAGE_HEIGHT:
+            width = round(img.width * SPONSOR_MAX_IMAGE_HEIGHT / img.height)
+            img = img.resize((max(width, 1), SPONSOR_MAX_IMAGE_HEIGHT))
+        buf = io.BytesIO()
+        img.convert("RGBA").save(buf, format="PNG", optimize=True)  # PNG -> Transparenz bleibt
+        return buf.getvalue(), "image/png"
+    except Exception:  # noqa: BLE001 – im Zweifel das Original speichern
+        return data, mime
 
 
 async def get_mail_test_mode(session: AsyncSession) -> bool:

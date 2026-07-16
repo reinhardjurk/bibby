@@ -189,28 +189,48 @@ table.results tr.dnf { color: var(--muted); }
 table.results select, table.results input { padding: 4px 6px; font-size: 0.9rem; }
 code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
 
-/* --- Sponsoren-Element (rotierend, wiederverwendbar) --- */
+/* --- Sponsoren-Element (wiederverwendbar) ---
+   FESTE Bandhöhe (Inline-Style aus der Klassen-Konfig): die Leiste ändert ihre
+   Größe beim Logowechsel nie. Das Logo wird darin skaliert (object-fit contain). */
 .sponsors {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: content-box; /* Inline-height = reine Bandhöhe, ohne Padding */
   margin: 16px 0;
   padding: 12px 14px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
 }
-/* Logo über die komplette Breite, Höhe folgt dem Seitenverhältnis (nie verzerrt).
-   Die Klassen-Höhe ist die MAX-Höhe: hohe Klassen füllen die Breite, kleine
-   Klassen werden dadurch gedeckelt und mittig kleiner dargestellt. */
 .sponsor-logo {
-  display: block;
-  width: 100%;
+  max-width: 100%;
+  width: auto;
   height: auto;
   object-fit: contain;
   animation: sponsor-fade 0.5s ease;
 }
 @keyframes sponsor-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Laufband: alle Logos scrollen endlos horizontal */
+.sponsors.marquee { justify-content: flex-start; }
+.marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  height: 100%;
+  width: max-content;
+  animation-name: marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee-logo { max-width: none; width: auto; height: auto; object-fit: contain; flex: none; }
+
 @media (prefers-reduced-motion: reduce) {
   .sponsor-logo { animation: none; }
+  .marquee-track { animation: none; }
 }
 
 /* Sponsoren-Verwaltung: Vorschau-Kacheln */

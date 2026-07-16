@@ -32,6 +32,7 @@ async def list_sponsors(session: AsyncSession = Depends(get_session)) -> dict:
     ).all()
     return {
         "tiers": await services.get_sponsor_tiers(session),
+        "display": await services.get_sponsor_display(session),
         "items": [{"id": str(r.id), "tier": r.tier, "name": r.name} for r in rows],
     }
 

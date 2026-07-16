@@ -44,6 +44,7 @@ from ..schemas import (
     ParticipantMerge,
     ResultList,
     SessionToken,
+    SponsorDisplayUpdate,
     SponsorTiersUpdate,
 )
 from ..passwords import verify_password
@@ -163,9 +164,8 @@ async def upload_sponsor(
     data = await file.read()
     if len(data) > 2_000_000:
         raise HTTPException(413, "Datei zu groß (max. 2 MB).")
-    sponsor = Sponsor(
-        tier=tier, name=name.strip() or None, image=data, image_mime=file.content_type
-    )
+    data, mime = services.normalize_logo(data, file.content_type)
+    sponsor = Sponsor(tier=tier, name=name.strip() or None, image=data, image_mime=mime)
     session.add(sponsor)
     await session.commit()
     return {"id": str(sponsor.id), "tier": tier, "size": len(data)}
@@ -197,6 +197,21 @@ async def update_sponsor_tiers(
     )
     await session.commit()
     return await services.get_sponsor_tiers(session)
+
+
+@router.patch("/sponsor-display")
+async def update_sponsor_display(
+    body: SponsorDisplayUpdate,
+    _user=Depends(require_roles("race_office")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Anzeigemodus der Sponsorenleiste: 'rotate' (ein Logo rotierend) oder
+    'marquee' (Laufband)."""
+    if body.mode not in ("rotate", "marquee"):
+        raise HTTPException(422, "mode muss 'rotate' oder 'marquee' sein")
+    await services.set_sponsor_display(session, body.mode)
+    await session.commit()
+    return {"display": body.mode}
 
 
 # --- Ergebnisdruck: Urkunden ----------------------------------------------

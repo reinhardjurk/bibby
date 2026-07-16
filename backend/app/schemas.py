@@ -112,6 +112,10 @@ class SponsorTiersUpdate(BaseModel):
     tiers: dict[str, SponsorTierCfg]
 
 
+class SponsorDisplayUpdate(BaseModel):
+    mode: str  # 'rotate' | 'marquee'
+
+
 # --- Ergebnisse -----------------------------------------------------------
 class LapSplit(BaseModel):
     lap_index: int
