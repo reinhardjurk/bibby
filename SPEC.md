@@ -1,38 +1,47 @@
 # Bibby — Vollständige Projektspezifikation
 
 Diese Datei beschreibt das Projekt **vollständig und implementierungsunabhängig**,
-sodass es aus dieser Spezifikation neu gebaut werden kann. Sie enthält alle
-fachlichen Anforderungen, Architektur- und Design-Entscheidungen, das komplette
-Datenmodell, die Geschäftslogik, alle API-Endpunkte, die Frontend-Struktur und
-die Konfiguration.
+sodass daraus weitergearbeitet oder neu gebaut werden kann. Sie enthält alle
+fachlichen Anforderungen, Architektur-/Design-Entscheidungen, das komplette
+Datenmodell, die Geschäftslogik, alle API-Endpunkte, die Frontend-Struktur, die
+Konfiguration und den Deploy-Ablauf. **Stand: 2026-07-14** (Git-HEAD-Feature-Set;
+Repo `github.com/reinhardjurk/bibby`, Branch `main`).
+
+> Ergänzend zu dieser Datei liegt im Projektgedächtnis (`memory/bibby-project.md`,
+> `memory/bibby-scaleway-prod.md`) der Prod-/Deploy-Kontext (Scaleway-IDs, Fallen).
 
 ---
 
 ## 1. Zweck & Überblick
 
-Bibby ist ein System für eine **jährlich stattfindende Laufveranstaltung** und
-deckt ab:
+Bibby ist ein System für eine **jährlich stattfindende Laufveranstaltung**
+(Gröbenzeller Familienlauf) und deckt ab:
 
-1. **Anmeldung** der Läufer über ein Webformular (mit Bestätigungs-E-Mail).
+1. **Anmeldung** über ein Webformular (mit Bestätigungs-E-Mail + Verwaltungslink).
 2. **Selbstverwaltung** der Anmeldung durch die Läufer (Änderungen/Korrekturen).
-3. **Zeiterfassung** während des Rennens (händisch + über eine separate
-   CV-App/Kamera, beide gegen dieselbe API).
+3. **Zeiterfassung** während des Rennens (händisch + über eine separate CV-App,
+   beide gegen dieselbe API), inkl. mehrerer Zeitnehmer je Ziellinie.
 4. **Ergebnislisten** je Strecke, inkl. Altersklassen/Geschlecht.
-5. **Jahresübergreifende** Teilnehmer-Statistik („nimmt zum 5. Mal teil").
+5. **Urkundendruck** (einzeln, gruppenweise, komplett) auf Event-Vorlage.
+6. **Sponsorenanzeige** (5 gewichtete Klassen, Rotation oder Laufband).
+7. **Jahresübergreifende** Teilnehmer-Statistik („nimmt zum 5. Mal teil").
 
-**Serverless auf Scaleway**, Backend in **Python/FastAPI**, Frontend als
-**Single-Page-App**.
+**Serverless auf Scaleway**, Backend **Python/FastAPI**, Frontend **SPA**.
+Läuft live unter **https://anmeldung.run-bibby.de**.
 
-### Wichtigstes Domänenkonzept: Rundenrennen mit benannten Strecken
+### Wichtigstes Domänenkonzept: benannte Strecken, EIN Zieldurchlauf
 
-- Gelaufen wird in **Runden** (Rundenlinie an Start/Ziel). Läufer melden sich für
-  eine **Strecke** an, die eine bestimmte Rundenzahl (`lap_count`) hat.
-- Eine Strecke wird über ihren **Namen** identifiziert, **nicht** über die
-  Rundenzahl. Mehrere Strecken je Event dürfen dieselbe Rundenzahl haben, z. B.
-  „3,3 km Running" (1 Runde), „3,3 km Walking" (1 Runde), „1 km Kinder" (1 Runde),
-  sowie Mehrrunden-Varianten (2/3 Runden).
-- `lap_count` = **Anzahl der Zielüberquerungen**, ab der ein Läufer dieser Strecke
-  „im Ziel" ist. Zwischenzeiten (Splits) je Runde fallen dabei automatisch an.
+- Es gibt **kein Rundenkonzept mehr** (früher entfernt). Jeder Teilnehmer
+  überquert die Ziellinie im Rahmen seiner Wertung; die **Zielzeit ist der
+  Mittelwert ALLER (nicht-ignorierten) Erfassungen** dieser Startnummer minus der
+  Startzeit der Strecke (mehrere Zeitnehmer, die dieselbe Ankunft erfassen, werden
+  automatisch gemittelt — siehe §5.3).
+- Eine **Strecke** (`competition`) wird über ihren **Namen** identifiziert.
+  Mehrere Strecken je Event sind erlaubt (z. B. „3,3 km Running", „3,3 km Walking",
+  „1 km Kinder"). Das Feld `lap_count` existiert noch als **vestigiale Spalte
+  (Default 1)**, hat aber keine Wirkung und ist aus UI/Logik entfernt.
+- Jede Strecke konfiguriert ihre **Wertung** selbst: Altersklassen-Schema
+  (5-Jahres / 1-Jahres / keine) und Geschlechtswertung (ja/nein) — siehe §5.5.
 
 ---
 
@@ -40,296 +49,248 @@ deckt ab:
 
 | Bereich | Technologie / Scaleway-Dienst |
 |---|---|
-| Frontend | React + Vite + TypeScript (SPA), eigenes leichtes i18n (de/en) |
-| SPA-Hosting | Scaleway Object Storage + Website (404 → index.html Rewrite) |
-| Backend | FastAPI, async SQLAlchemy 2.0, Deployment als Scaleway Serverless Container |
-| Datenbank | Scaleway Serverless SQL Database (PostgreSQL), Migrationen via Alembic |
-| Dateien | Object Storage (Startnummern-PDF) |
+| Frontend | React 18 + Vite + TypeScript (SPA), eigenes leichtes i18n (de/en), react-router-dom v6, qrcode.react |
+| SPA-Hosting | Object Storage + Website (Error-Doc `index.html`), davor **Edge Services** (managed TLS + eigene Domain) |
+| Backend | FastAPI, async SQLAlchemy 2.0, asyncpg, Scaleway Serverless Container |
+| Datenbank | Scaleway Serverless SQL (PostgreSQL hinter Pooler), Alembic-Migrationen |
+| PDF | WeasyPrint (Startnummern + Urkunden); Pillow (Sponsoren-Bildskalierung) |
 | E-Mail | Scaleway Transactional Email (TEM) |
-| Secrets | Scaleway Secret Manager / Env-Variablen |
-| IaC | Terraform (Scaleway Provider) |
+| Crypto | Fernet (IBAN), bcrypt (Passwörter), HMAC-SHA256 (Token-Hashing) |
+| IaC | Terraform/OpenTofu (`tofu`), Scaleway Provider ~> 2.40 |
 
-Konfiguration ausschließlich über Umgebungsvariablen mit Präfix **`BIBBY_`**
-(pydantic-settings). Backend-Domänenlogik liegt in einem `services`-Modul;
-Router pro Bereich.
+- Konfiguration ausschließlich über Env-Variablen mit Präfix **`BIBBY_`**
+  (pydantic-settings). **Kein** `if local/prod` im Code — Prod-Werte injiziert
+  Terraform als `BIBBY_*`; lokal greifen `.env`/Defaults (Twelve-Factor).
+- Backend-Domänenlogik in `backend/app/services.py`; Router je Bereich in
+  `backend/app/routers/` (`events`, `registrations`, `manage`, `timing`,
+  `results`, `sponsors`, `admin`).
 
 ---
 
 ## 3. Datenmodell (PostgreSQL)
 
-UUID-Primärschlüssel (Python-seitig `uuid4`), `timestamptz` in UTC,
-`*_i18n`-Felder als JSONB `{"de": "...", "en": "..."}`.
+UUID-PK (Python `uuid4`), `timestamptz` in UTC, `*_i18n` als JSONB
+`{"de": "...", "en": "..."}`. ORM in `backend/app/models.py`.
 
 ### participant — jahresübergreifende Identität
-- `id` UUID PK
-- `match_key` TEXT UNIQUE — normalisiert: `lower(unaccent(last_name+first_name)) || '|' || birth_date`
-- `first_name`, `last_name` TEXT
-- `birth_date` DATE (at-rest verschlüsselt gedacht; öffentlich nur Jahr/Altersklasse)
-- `gender` TEXT CHECK in ('f','m','x')
-- `created_at` timestamptz
+`id` PK · `match_key` TEXT UNIQUE (normalisiert, §5.1) · `first_name`,
+`last_name` · `birth_date` DATE · `gender` CHECK in ('f','m','x') · `created_at`.
 
 ### event — jährliche Veranstaltung
-- `id` UUID PK
-- `name` TEXT
-- `year` INT UNIQUE
-- `event_date` DATE
-- `location` TEXT NULL
-- `default_start_time` timestamptz NULL — Massenstart-Fallback
-- `registration_deadline` timestamptz NULL
-- `tshirt_options` JSONB NULL — konfigurierbare T-Shirt-Optionen; NULL = Default
-- `junior_cutoff_date` DATE NULL — wer am/nach diesem Datum geboren ist, zahlt ermäßigt; NULL = keine Ermäßigung
-- `tshirt_included` BOOLEAN DEFAULT false — informativ (T-Shirt im Startgeld enthalten)
-- `created_at` timestamptz
+`id` · `name` · `year` INT UNIQUE · `event_date` DATE · `location` NULL ·
+`default_start_time` timestamptz NULL (Massenstart-Fallback) ·
+`registration_deadline` NULL · `tshirt_options` JSONB NULL ·
+`junior_cutoff_date` DATE NULL (ab hier ermäßigt) · `tshirt_included` BOOL ·
+**`certificate_bg`** BYTEA NULL (Urkunden-Hintergrundbild) ·
+**`certificate_bg_mime`** TEXT NULL · **`certificate_offset`** INT DEFAULT 0
+(vertikaler Druckversatz in „Zeilen", ±; 1 Zeile ≈ 8 mm) · `created_at`.
 
 ### competition — eine Strecke innerhalb eines Events
-- `id` UUID PK
-- `event_id` UUID FK → event ON DELETE CASCADE
-- `lap_count` INT CHECK >= 1
-- `title_i18n` JSONB NULL — Anzeigename (unterscheidet Strecken!)
-- `start_time` timestamptz NULL — überschreibt event.default_start_time
-- `price_cents` INT DEFAULT 0 — Erwachsenen-/Standardpreis
-- `price_junior_cents` INT NULL — Jugendpreis (NULL = wie Erwachsene)
-- `currency` TEXT DEFAULT 'EUR'
-- **KEINE** Unique-Bedingung auf (event_id, lap_count) — mehrere Strecken dürfen dieselbe Rundenzahl haben
+`id` · `event_id` FK CASCADE · `lap_count` INT (**vestigial**, Default 1) ·
+`title_i18n` JSONB NULL (Anzeigename, unterscheidet Strecken) · `start_time`
+timestamptz NULL (überschreibt `event.default_start_time`) · `price_cents` ·
+`price_junior_cents` NULL · `currency` DEFAULT 'EUR' ·
+**`age_class_scheme`** TEXT DEFAULT 'five' ('five'|'one'|'none') ·
+**`gender_scoring`** BOOL DEFAULT true. Keine Unique-Bedingung auf lap_count.
 
-### category — Altersklassen-Regeln je Event
-- `id` UUID PK
-- `event_id` UUID FK → event CASCADE
-- `code` TEXT (z. B. "M40", "W30"), UNIQUE(event_id, code)
-- `label_i18n` JSONB NULL
-- `gender` TEXT NULL CHECK in ('f','m','x') — NULL = geschlechtsoffen
-- `min_age` INT NULL, `max_age` INT NULL
+### category — Altersklassen-Regeln (DEPRECATED, ungenutzt)
+Tabelle existiert noch, wird aber **nicht mehr benutzt** — Altersklassen werden
+berechnet (§5.5).
 
 ### registration — Anmeldung
-- `id` UUID PK
-- `event_id` UUID FK → event CASCADE
-- `competition_id` UUID FK → competition
-- `participant_id` UUID FK → participant
-- `email` TEXT (kann je Jahr abweichen)
-- `language` TEXT DEFAULT 'de'
-- `team` TEXT NULL — optionale Teamzugehörigkeit
-- `tshirt` TEXT NULL — gewählte T-Shirt-Option
-- `status` TEXT DEFAULT 'confirmed' CHECK in ('confirmed','cancelled') — Anmeldung gilt sofort als bestätigt
-- `finish_seconds` DOUBLE PRECISION NULL — gespeicherte Netto-Laufzeit (Snapshot, siehe §5.3)
-- `manage_token_hash` TEXT UNIQUE — HMAC-Hash des Selbstverwaltungs-Tokens
-- `consent_data` BOOLEAN DEFAULT false — Einwilligung Datenverarbeitung (Pflicht bei Anmeldung)
-- `consent_publish` BOOLEAN DEFAULT false — Einwilligung Ergebnisveröffentlichung (optional)
-- `created_at`, `updated_at` timestamptz
-- **UNIQUE(event_id, participant_id)** — eine Person nicht doppelt je Event
+`id` · `event_id` FK CASCADE · `competition_id` FK · `participant_id` FK ·
+`email` · `language` DEFAULT 'de' · `team` TEXT NULL · `tshirt` TEXT NULL ·
+`status` DEFAULT 'confirmed' CHECK in ('confirmed','cancelled') ·
+`finish_seconds` DOUBLE NULL (gespeicherte Netto-Zeit, Snapshot; §5.3) ·
+`manage_token_hash` TEXT UNIQUE · `consent_data` BOOL · `consent_publish` BOOL ·
+`created_at`,`updated_at` · **UNIQUE(event_id, participant_id)**.
 
-### bib_assignment — Startnummer (global pro Event, streckenunabhängig)
-- `id` UUID PK
-- `event_id` UUID FK → event CASCADE
-- `bib_number` INT
-- `registration_id` UUID FK → registration CASCADE, UNIQUE
-- `assigned_at` timestamptz
-- **UNIQUE(event_id, bib_number)**
+### bib_assignment — Startnummer (global pro Event)
+`id` · `event_id` FK CASCADE · `bib_number` INT · `registration_id` FK CASCADE
+UNIQUE · `assigned_at` · **UNIQUE(event_id, bib_number)**.
 
-### payment — Zahlung (kein Online-PSP!)
-- `id` UUID PK
-- `registration_id` UUID FK → registration CASCADE
-- `method` TEXT CHECK in ('sepa_debit','on_site')
-- `amount_cents` INT — beim Anmelden berechneter Betrag (Snapshot)
-- `currency` TEXT DEFAULT 'EUR'
-- `status` TEXT DEFAULT 'pending' CHECK in ('pending','paid','cancelled')
-- `iban_encrypted` TEXT NULL — IBAN app-seitig verschlüsselt (Fernet)
-- `iban_masked` TEXT NULL — z. B. "DE89 **** 3000"
-- `account_holder` TEXT NULL
-- `mandate_reference` TEXT UNIQUE NULL — z. B. "BIBBY-2026-AB12CD34"
-- `mandate_granted_at` timestamptz NULL
-- `sepa_exported_at` timestamptz NULL — Zeitpunkt des letzten SEPA-CSV-Exports
-- `created_at`, `updated_at` timestamptz
+### payment — Zahlung (kein Online-PSP)
+`id` · `registration_id` FK CASCADE · `method` CHECK ('sepa_debit','on_site') ·
+`amount_cents` (Snapshot) · `currency` · `status` CHECK
+('pending','paid','cancelled') · `iban_encrypted` (Fernet) · `iban_masked` ·
+`account_holder` · `mandate_reference` UNIQUE NULL · `mandate_granted_at` ·
+`sepa_exported_at` timestamptz NULL · `created_at`,`updated_at`.
 
-### timing_record — rohe Linien-Überquerung (unveränderlich)
-- `id` UUID PK
-- `event_id` UUID FK → event CASCADE
-- `bib_number` INT — roh; muss (noch) nicht zugeordnet sein
-- `absolute_time` timestamptz — Gerätezeit + Offset
-- `source_token_id` UUID FK → device_token NULL
-- `dedup_key` TEXT — Idempotenz je Quelle
-- `lap_index` INT NULL — abgeleitet (n-te gültige Überquerung)
-- `status` TEXT DEFAULT 'valid' CHECK in ('valid','ignored','duplicate','manual')
-- `raw_payload` JSONB NULL
-- `created_at` timestamptz
-- **UNIQUE(event_id, dedup_key)**; Index (event_id, bib_number, absolute_time)
+### timing_record — rohe Linien-Überquerung
+`id` · `event_id` FK CASCADE · `bib_number` INT · `absolute_time` timestamptz
+(Gerätezeit + Offset) · `source_token_id` FK NULL · `dedup_key` TEXT ·
+`lap_index` INT NULL (**vestigial**, wird nicht mehr gesetzt/gelesen) ·
+`status` DEFAULT 'valid' CHECK ('valid','ignored','duplicate','manual') ·
+`raw_payload` JSONB NULL · `created_at` · **UNIQUE(event_id, dedup_key)**.
 
-### device_token — Zeitnahme-Geräte (Web-Maske, CV-App)
-- `id` UUID PK
-- `event_id` UUID FK → event CASCADE
-- `label` TEXT
-- `token_hash` TEXT UNIQUE — HMAC-Hash; Klartext nur bei Erstellung ausgegeben
-- `scope` TEXT DEFAULT 'timing:write'
-- `time_offset_seconds` INT DEFAULT 0 — NTP-Drift / Video-Frame-Korrektur
-- `active` BOOLEAN DEFAULT true
-- `created_at`, `last_used_at` timestamptz
+### device_token — Zeitnahme-Geräte
+`id` · `event_id` FK CASCADE · `label` · `token_hash` TEXT UNIQUE ·
+**`token_plain`** TEXT NULL (menschenlesbarer Klartext-Code, **dauerhaft
+sichtbar** — bewusst gespeichert) · `scope` DEFAULT 'timing:write' ·
+`time_offset_seconds` INT · `active` BOOL · `created_at`,`last_used_at`.
 
-### app_user — Organisatoren (Admin-Login)
-- `id` UUID PK
-- `email` TEXT UNIQUE
-- `name` TEXT NULL
-- `password_hash` TEXT NULL — bcrypt
-- `active` BOOLEAN DEFAULT true
-- `created_at` timestamptz
+### app_user / user_role / auth_token
+`app_user`: `email` UNIQUE, `password_hash` (bcrypt), `active`. `user_role`:
+PK(user_id, role), role CHECK ('admin','race_office','timing','viewer').
+`auth_token`: `token_hash` UNIQUE, `expires_at` (**72 h TTL**), `used_at`.
 
-### user_role — RBAC (Mehrfachrollen)
-- `user_id` UUID FK → app_user CASCADE
-- `role` TEXT CHECK in ('admin','race_office','timing','viewer')
-- PK(user_id, role)
+### app_setting — Laufzeit-Konfiguration (key/value)
+`key` TEXT PK · `value` TEXT · `updated_at`. Nutzung: `mail_test_mode` (Live/Test
+umschaltbar ohne Redeploy), `sponsor_tiers` (JSON), `sponsor_display`
+('rotate'|'marquee'), `sponsor_marquee_seconds`. Überschreibt — falls gesetzt —
+den Env-Default.
 
-### auth_token — Session-Token
-- `id` UUID PK
-- `user_id` UUID FK → app_user CASCADE
-- `token_hash` TEXT UNIQUE
-- `expires_at` timestamptz (12 h TTL)
-- `used_at` timestamptz NULL
-- `created_at` timestamptz
+### sponsor — Sponsorenlogo
+`id` · `tier` INT CHECK 1..5 (die „Klasse"/„Ordner") · `name` TEXT NULL ·
+`url` TEXT NULL (Ziel beim Klick) · `image` BYTEA · `image_mime` TEXT ·
+`created_at`.
 
-### Migrationen (Alembic, additiv)
-1. `0001` Baseline — alle Tabellen (via `Base.metadata.create_all`).
-2. `0002` registration.team
-3. `0003` app_user.password_hash
-4. `0004` registration.finish_seconds
-5. `0005` registration.tshirt + event.tshirt_options
-6. `0006` competition.price_junior_cents + event.junior_cutoff_date + event.tshirt_included
-7. `0007` payment.sepa_exported_at
-8. `0008` DROP UNIQUE(event_id, lap_count) auf competition
-
-Additive Migrationen verwenden `ADD COLUMN IF NOT EXISTS`, damit sie mit der
-create_all-Baseline verträglich sind.
+### Migrationen (Alembic, additiv, `backend/alembic/versions/`)
+`0001` Baseline (create_all) · `0002` registration.team · `0003`
+app_user.password_hash · `0004` registration.finish_seconds · `0005`
+registration.tshirt + event.tshirt_options · `0006` price_junior_cents +
+junior_cutoff_date + tshirt_included · `0007` payment.sepa_exported_at · `0008`
+DROP UNIQUE(event_id,lap_count) · **`0009`** app_setting · **`0010`**
+event.certificate_bg(+mime) · **`0011`** event.certificate_offset · **`0012`**
+device_token.token_plain · **`0013`** competition.age_class_scheme +
+gender_scoring · **`0014`** sponsor · **`0015`** sponsor.url.
+Additive Migrationen nutzen `ADD COLUMN/CREATE TABLE IF NOT EXISTS` (verträglich
+mit der create_all-Baseline).
 
 ---
 
 ## 4. Rollen (RBAC) & Auth
 
-- **admin** — alles (implizit alle Rechte), inkl. Event löschen, Benutzer.
-- **race_office** — Anmeldungen bearbeiten, Startnummern, Teilnehmer mergen,
-  Ergebnisse freigeben, Events anlegen/konfigurieren, Zahlungen, SEPA-Export.
-- **timing** — Zeiten erfassen/korrigieren/löschen, Geräte-Tokens verwalten.
+- **admin** — alles (implizit alle Rechte), inkl. Event löschen, Mail-Modus live.
+- **race_office** — Anmeldungen, Startnummern, Merge, Events/Strecken, Zahlungen,
+  SEPA, Sponsoren, Urkunden/Ergebnisdruck.
+- **timing** — Zeiten erfassen/korrigieren/löschen/manuell anlegen, Geräte-Tokens.
 - **viewer** — nur Lesen/Export.
 
-**Organisator-Login: passwortbasiert.** `POST /admin/auth/login {email, password}`
-→ bcrypt-Prüfung → gibt bei Erfolg einen **Session-Token** zurück (AuthToken,
-12 h). Fehler → 401 generisch (keine User-Enumeration). Alle `/admin/*`-Aufrufe
-tragen `Authorization: Bearer <token>`. `require_roles(...)` prüft; `admin` ist
-immer erlaubt.
-
-**Zeitnahme-Auth getrennt:** Geräte-Tokens (`Authorization: Bearer <device-token>`)
-für die Ingestion. Tokens werden nur als Hash gespeichert; Klartext einmalig bei
-Erstellung ausgegeben (im Admin als QR-Code + Text).
-
-Alle Tokens (Session, Manage-Link, Geräte) werden **nur als HMAC-Hash**
-(`secret_key`) gespeichert.
+**Login passwortbasiert:** `POST /admin/auth/login {email,password}` → bcrypt →
+Session-Token (`auth_token`, **72 h**). Fehler → 401 generisch. `/admin/*` trägt
+`Authorization: Bearer <token>`; `require_roles(...)` prüft, **`admin` ist immer
+erlaubt** (`security.py`). Zeitnahme-Auth getrennt über Geräte-Tokens. Session-
+und Manage-Token werden **nur als HMAC-Hash** (`secret_key`) gespeichert; der
+Geräte-Code liegt zusätzlich im Klartext (`token_plain`), damit er dauerhaft
+angezeigt werden kann.
 
 ---
 
-## 5. Geschäftslogik
+## 5. Geschäftslogik (`services.py`)
 
 ### 5.1 Teilnehmer-Identität
-`match_key = normalize(last_name)+"|"+normalize(first_name)+"|"+birth_date.iso`,
-`normalize` = NFKD, Diakritika entfernt, lowercase, getrimmt. Beim Anmelden:
-existierenden participant per match_key finden oder neu anlegen. Admin kann zwei
-participant-Datensätze **mergen** (Anmeldungen umhängen, Quelle löschen).
+`match_key = normalize(last)+"|"+normalize(first)+"|"+birth_date.iso`,
+`normalize` = NFKD, Diakritika weg, lowercase, getrimmt. Beim Anmelden per
+match_key finden oder neu anlegen. Admin kann zwei participant **mergen**.
 
 ### 5.2 Startnummernvergabe
-**Automatisch bei der Anmeldung**, fortlaufend pro Event
-(`max(bib_number)+1`, Start konfigurierbar `bib_start_number`=1). Nebenläufigkeit
-über einen transaktionsgebundenen **Advisory-Lock** pro Event
-(`pg_advisory_xact_lock(hashtext('bib:'||event_id))`). Nachträglich änderbar
-(Admin). Startnummer ist streckenunabhängig.
+Automatisch bei der Anmeldung, fortlaufend `max(bib)+1` (Start
+`bib_start_number`=1), Nebenläufigkeit über `pg_advisory_xact_lock` pro Event.
+Nachträglich änderbar. Streckenunabhängig.
 
-### 5.3 Zeiterfassung & Rundenableitung
-- Eine **Ingestion-API** für alle Quellen (händische Web-Maske + CV-App):
-  `POST /events/{id}/timings` mit Batch von `{bib_number, absolute_time, dedup_key, raw_payload?}`.
-- **Idempotent** über `INSERT ... ON CONFLICT (event_id, dedup_key) DO NOTHING`.
-- Zeit ist die **Gerätezeit** beim Erfassen; der pro Geräte-Token hinterlegte
-  `time_offset_seconds` wird serverseitig addiert.
-- **Rundenableitung** (`recompute_laps(event_id, bib)`), nach jedem Batch/Korrektur:
-  gültige Überquerungen einer bib chronologisch durchgehen, `lap_index` 1..n
-  vergeben; Überquerungen, die **< `min_lap_seconds` (=60 s)** nach der letzten
-  gezählten liegen, werden als `duplicate` markiert (Prellschutz);
-  Status `manual` zählt immer.
-- **Zielzeit** = Überquerung mit `lap_index == competition.lap_count`.
-  **Netto-Laufzeit** = `absolute_time − (competition.start_time || event.default_start_time)`.
-- Ergebnisse werden in `build_results` **live** berechnet. Zusätzlich kann das
-  Race-Office per Button „Alle Laufzeiten berechnen" (`recompute_event_times`)
-  `registration.finish_seconds` als **Snapshot** persistieren (für die Liste).
+### 5.3 Zeiterfassung & Zielzeit (OHNE Runden)
+- Eine **Ingestion-API** für alle Quellen: `POST /events/{id}/timings` mit Batch
+  `{bib_number, absolute_time, dedup_key, raw_payload?}`. **Idempotent** über
+  `ON CONFLICT (event_id, dedup_key) DO NOTHING`. `time_offset_seconds` des
+  Geräts wird serverseitig addiert.
+- **Zielzeitpunkt einer Startnummer = Mittelwert ALLER Erfassungen mit
+  `status != 'ignored'`** (`services.bib_finish_datetime` + `_mean_datetime`).
+  Kein `recompute_laps`, kein `lap_index` mehr.
+- **Netto-Laufzeit = Mittelwert − (competition.start_time || event.default_start_time)**.
+  Fehlt die Startzeit → **DNF** (häufigste Support-Ursache!). `status='ignored'`
+  schließt eine Fehlerfassung aus.
+- Ergebnisse werden in `build_results` **live** berechnet. Zusätzlich persistiert
+  „Alle Laufzeiten berechnen" (`recompute_event_times`) `registration.finish_seconds`
+  als Snapshot; Rückgabe = Anzahl tatsächlich ermittelter Zeiten (0 = klares
+  Signal für fehlende Startzeit/Erfassung).
+- **Manuelle Erfassung** (`POST /events/{id}/timings/{bib}/manual`, Rolle timing):
+  legt einen Record mit `status='manual'` an — auch wenn für die Nummer noch keine
+  Erfassung existiert.
 
 ### 5.4 Preisberechnung
-`compute_price_cents(event, competition, birth_date)`:
-- `is_junior = event.junior_cutoff_date != NULL && birth_date >= junior_cutoff_date`
-- wenn junior und `competition.price_junior_cents != NULL` → Jugendpreis,
-  sonst `competition.price_cents`.
-- Wird **beim Anmelden** berechnet und in `payment.amount_cents` gespeichert
-  (Snapshot; wird bei nachträglicher Admin-Änderung nicht automatisch neu berechnet).
-- Das T-Shirt ist im Preis enthalten (Flag `tshirt_included`, informativ);
-  die T-Shirt-Wahl (inkl. „Kein T-Shirt (Spende)") ändert den Betrag **nicht**.
+`compute_price_cents(event, competition, birth_date)`: `is_junior` = geboren
+am/nach `event.junior_cutoff_date` → `competition.price_junior_cents` (falls
+gesetzt), sonst `price_cents`. Berechnet **beim Anmelden**, gespeichert als
+`payment.amount_cents` (Snapshot). T-Shirt-Wahl ändert den Betrag nicht.
 
-### 5.5 Ergebnislisten
-`build_results(competition, only_published=True)`:
-- Alle bestätigten Anmeldungen der Strecke mit Startnummer; je Startnummer die
-  Überquerungen mit `lap_index` laden → Splits + finish_seconds.
-- Sortierung: Finisher nach Zeit, DNF ans Ende; **Rang nur für Finisher**,
-  berechnet über das **gesamte** Finisher-Feld (Platzierungen bleiben korrekt).
-- **DSGVO:** öffentliche Liste (`only_published=True`) filtert Läufer ohne
-  `consent_publish` heraus; jede Zeile trägt ein `published`-Flag. Der interne
-  Admin-Endpunkt liefert die Vollwertung (`only_published=False`).
-- Zeilen enthalten zusätzlich `gender`, `category_code` (aus category-Regeln,
-  Alter = `event.event_date.year − birth_year`) und `participation_count`
-  (Anzahl Events mit bestätigter Anmeldung dieser Person → „X. Teilnahme").
-- **Öffentliche Ansichten** (Frontend): (a) Gesamt, (b) nach Altersklasse,
-  (c) nach Altersklasse & Geschlecht. Gruppierung + Platzierung je Gruppe wird
-  clientseitig aus der zeitsortierten Liste berechnet.
+### 5.5 Ergebnisse, Altersklassen & Platzierungen
+- **Altersklasse wird berechnet** (`compute_age_class(age, scheme)`,
+  `age = event.event_date.year − birth_year`), je nach `competition.age_class_scheme`:
+  `five` → U20, AK20 (20–24), AK25, AK30 …; `one` → `AK<alter>` (z. B. AK41);
+  `none` → keine Altersklasse. Die `category`-Tabelle wird **nicht** genutzt.
+- `build_results(competition, only_published=True)` liefert `ResultRow`
+  {rank, bib_number, first_name, last_name, gender, category_code, team,
+  finish_seconds, splits=[] (leer), participation_count, published}. Sortierung:
+  Finisher nach Zeit, DNF ans Ende; **Rang über das ganze Feld**.
+- **DSGVO:** öffentliche Liste filtert `consent_publish=false` heraus (Ränge
+  trotzdem übers ganze Feld); interner Admin-Endpunkt = Vollwertung.
+- **Vier Platzierungen** (`placement_from_rows`): gesamt, gesamt je Geschlecht,
+  Altersklasse, Altersklasse je Geschlecht. `certificate_lines(placement, lang,
+  gender_scoring)` blendet je Streckenkonfig die passenden Zeilen ein (keine
+  Geschlechtszeilen ohne `gender_scoring`; keine AK-Zeilen bei Schema `none`).
+- `participation_count` = Anzahl Events mit bestätigter Anmeldung dieser Person.
 
 ### 5.6 Team
-`registration.team` (frei). Anmelde- und Verwaltungsformular bieten
-**Autovervollständigung** über bereits vergebene Teamnamen (`GET /teams`, natives
-`<datalist>`). Auf der Verwaltungsseite wird zusätzlich das **letzte Team** der
-Person (aus einer früheren Anmeldung) als Vorschlag vorbelegt.
+`registration.team` (frei), Autovervollständigung über `GET /teams`
+(`<datalist>`); Verwaltungsseite schlägt das letzte Team der Person vor.
 
-### 5.7 Startnummern-PDF
-`GET /manage/bib.pdf?token=` rendert ein A5-Quer-PDF (WeasyPrint) mit großer
-Startnummer, Name, Event und Streckenname.
+### 5.7 PDFs (WeasyPrint)
+- **Startnummer:** `GET /manage/bib.pdf?token=` — A5 quer, Nummer/Name/Event/Strecke.
+- **Urkunde:** A4 hoch, Inhalt per Flexbox **mittig** zentriert, Reihenfolge
+  **Name · Startnummer · Team (falls vorhanden) · Zeit · Platzierungen**. Auf
+  optionale Event-Hintergrundvorlage (`event.certificate_bg`) gelegt, vertikal
+  verschoben um `event.certificate_offset` Zeilen. `render_certificates_pdf`
+  rendert **mehrseitig** (eine Urkunde je Seite); `render_certificate_pdf` ist der
+  Einzel-Wrapper. Teilnehmer holen ihre Urkunde über
+  `GET /manage/certificate.pdf?token=` (nur wenn `finish_seconds` gesetzt).
+
+### 5.8 Sponsoren
+- 5 **Klassen** (`tier` 1..5). Konfiguration je Klasse in `app_setting`
+  (`sponsor_tiers` JSON): `weight` (Zeitanteil in der Rotation, z. B. 30:20:10:5:1)
+  und `height` (MAX-Anzeigehöhe px). Anzeigemodus (`sponsor_display`) =
+  `rotate` oder `marquee`; Laufband-Dauer `sponsor_marquee_seconds` (5–300).
+- **Rotation:** pro 5-s-Slot wird die Klasse **nach Gewicht gelost** (→ exaktes
+  Zeitverhältnis), innerhalb der Klasse Round-Robin; immer **genau EIN** Logo im
+  DOM (minimaler Load).
+- **Laufband:** alle Logos scrollen endlos (Größe je Klasse), nahtlose Schleife
+  (Track verdoppelt, `translateX(-50%)`), respektiert `prefers-reduced-motion`.
+- **Feste Bandhöhe** (= größte Klassenhöhe) → die Leiste ändert ihre Größe beim
+  Logowechsel nie; Logos werden per `object-fit: contain` skaliert.
+- Beim Upload werden **Raster-Logos serverseitig** (Pillow) auf 400 px Höhe
+  herunterskaliert und als PNG gespeichert; **SVG** bleibt vektoriell. Logos mit
+  hinterlegter **URL** sind klickbar (neuer Tab, `rel=noopener`).
 
 ---
 
 ## 6. Zahlung (SEPA-Lastschrift oder Barzahlung)
 
-**Kein Online-Payment-Provider.** Bei der Anmeldung wählt man:
-- **SEPA-Lastschrift:** IBAN + Kontoinhaber + Einwilligung (Mandat). IBAN wird
-  per **IBAN-Prüfung (Format + mod-97)** validiert, dann **app-seitig
-  verschlüsselt** (Fernet, `field_encryption_key`) gespeichert; nur maskiert
-  angezeigt. Eine **Mandatsreferenz** wird erzeugt (`BIBBY-{year}-{8 hex}`).
-- **Barzahlung bei Abholung** der Startnummer.
-
-Die Anmeldung gilt sofort als `confirmed`; `payment.status` startet `pending`.
-Das **Race-Office** markiert „bezahlt" (`POST /admin/registrations/{id}/payment/mark-paid`).
-
-**SEPA-CSV-Export** (`POST /admin/events/{id}/sepa-export`, Rolle race_office):
-liefert eine CSV (Semikolon-getrennt, **UTF-8-BOM** für Excel) mit
-`Startnummer;Teilnehmer;Kontoinhaber;IBAN(entschlüsselt);Betrag;Waehrung;Mandatsreferenz;Mandatsdatum;Verwendungszweck`
-der **offenen, noch nicht exportierten** SEPA-Lastschriften. Setzt bei den
-enthaltenen Zahlungen `sepa_exported_at = now` → erkennbar, was schon abgerechnet
-ist. Query `?include_exported=true` schließt bereits exportierte wieder ein. Der
-eigentliche Lastschrifteinzug läuft offline (Banking/SEPA-XML pain.008 — noch
-nicht implementiert).
+Kein Online-PSP. Anmeldung wählt **SEPA-Lastschrift** (IBAN + Kontoinhaber +
+Mandat; IBAN mod-97-geprüft, Fernet-verschlüsselt, nur maskiert; Mandatsref
+`BIBBY-{year}-{8hex}`) oder **Barzahlung bei Abholung**. Anmeldung sofort
+`confirmed`, `payment.status='pending'`; Race-Office markiert „bezahlt".
+**SEPA-CSV-Export** (`POST /admin/events/{id}/sepa-export`): Semikolon-CSV mit
+UTF-8-BOM (Startnummer;Teilnehmer;Kontoinhaber;IBAN;Betrag;Waehrung;Mandatsref;
+Mandatsdatum;Verwendungszweck) der offenen, noch nicht exportierten Lastschriften;
+setzt `sepa_exported_at`; `?include_exported=true` schließt wieder ein. pain.008-
+XML noch nicht implementiert.
 
 ---
 
 ## 7. E-Mail (Scaleway TEM)
 
-`send_email(to, subject, text, html?)`:
-- **Test-Modus** (`mail_test_mode`, Standard **an**): leitet **alle** Mails an
-  `mail_test_recipient` um; der echte Empfänger steht im Betreff `[TEST → …]`.
-- Ohne `tem_secret_key` wird die Mail nur geloggt (lokale Entwicklung).
-- Versand: `POST https://api.scaleway.com/transactional-email/v1alpha1/regions/{region}/emails`
-  mit Header **`X-Auth-Token: <Secret Key>`** (nur der Secret Key des Scaleway-
-  API-Keys, **kein** Access Key ID) und Body
+`mailer.send_email(to, subject, text, html?, test_mode?)`:
+- **Test-Modus** (`mail_test_mode`, Default an; zur **Laufzeit umschaltbar** via
+  `app_setting`, Endpunkte `GET/PATCH /admin/mail-settings`, PATCH nur admin):
+  leitet **alle** Mails an `mail_test_recipient` um, echter Empfänger im Betreff.
+- Ohne `tem_secret_key` nur Log (lokal). Versand:
+  `POST …/transactional-email/v1alpha1/regions/{region}/emails`, Header
+  **`X-Auth-Token: <Secret Key>`** (nur Secret Key!), Body
   `{from:{email,name}, to:[{email}], subject, text, html?, project_id}`.
-- Absender-Domäne muss in TEM verifiziert sein.
-- **Mailfehler dürfen die Anmeldung nicht scheitern lassen** (nur loggen).
-
-Bestätigungsmail bei Anmeldung: lokalisiert (de/en), enthält den Verwaltungslink
-`{public_base_url}/manage?token=…`.
+- **Mailfehler dürfen die Anmeldung nicht scheitern lassen** — werden nur
+  geloggt (⇒ Mailprobleme via direktem `curl` gegen TEM debuggen, nicht via App).
+- Prod: Domain `mail.run-bibby.de` verifiziert (MX/SPF/DKIM/DMARC), Absender
+  `no-reply@mail.run-bibby.de`. **DKIM-Selector = Scaleway-Project-ID.**
 
 ---
 
@@ -337,137 +298,152 @@ Bestätigungsmail bei Anmeldung: lokalisiert (de/en), enthält den Verwaltungsli
 
 Lebende Referenz zusätzlich: FastAPI `/docs`.
 
-### Öffentlich (keine Auth)
-- `GET /health`
-- `GET /events` — inkl. tshirt_options, junior_cutoff_date, tshirt_included
-- `GET /events/{id}/competitions` — inkl. price_cents, price_junior_cents, start_time
-- `GET /teams` — distinct vergebene Teamnamen
-- `POST /registrations` — Anmeldung (vergibt Startnummer, legt Payment an, mailt)
-- `GET /events/{id}/results?competition_id=` — öffentliche Ergebnisliste
+### Öffentlich
+- `GET /health` · `GET /version` (Backend-Build + DB-Schema-Revision)
+- `GET /events` (inkl. tshirt_options, junior_cutoff_date, tshirt_included,
+  has_certificate_background, certificate_offset)
+- `GET /events/{id}/competitions` (inkl. price_*, start_time, age_class_scheme,
+  gender_scoring)
+- `GET /teams` · `POST /registrations` · `GET /events/{id}/results?competition_id=`
+- `GET /sponsors` (Metadaten + tiers/display/marquee_seconds, **ohne** Bild-Blob)
+- `GET /sponsors/{id}/image` (Bild, `Cache-Control: immutable 7d`)
 
-### Selbstverwaltung (Magic-Link-Token in Query)
-- `GET /manage?token=` — Anmeldung ansehen (inkl. team, tshirt+optionen, Zahlung)
-- `PATCH /manage?token=` — ändern (email, language, competition_id, consent_publish, team, tshirt)
-- `GET /manage/bib.pdf?token=` — Startnummer-PDF
+### Selbstverwaltung (Manage-Token in Query)
+- `GET /manage?token=` · `PATCH /manage?token=`
+- `GET /manage/bib.pdf?token=` · `GET /manage/certificate.pdf?token=`
 
 ### Zeiterfassung
-- `POST /events/{id}/timings` — Geräte-Token — Batch-Ingestion (idempotent)
-- `GET /events/{id}/timings/{bib}` — Session (timing/race_office/viewer) — Überquerungen
-- `PATCH /timings/{id}` — Session (timing) — korrigieren (Zeit/Status/bib; recompute alt+neu)
-- `DELETE /timings/{id}` — Session (timing) — löschen (recompute)
+- `POST /events/{id}/timings` (Geräte-Token, Batch, idempotent)
+- `POST /events/{id}/timings/{bib}/manual` (Session timing — Einzel anlegen)
+- `GET /events/{id}/timings/{bib}` · `PATCH /timings/{id}` · `DELETE /timings/{id}`
 
-### Admin (`/admin`, Bearer Session-Token, RBAC)
-- `POST /admin/auth/login` — Passwort-Login → SessionToken
-- `GET /admin/me` — eigene Rollen
-- `GET /admin/registrations?event_id=&q=&limit=&offset=` — paginierte Suche/Liste (default 50, max 200)
-- `GET /admin/registrations/{id}` — Detail (alle Felder inkl. tshirt_options)
-- `PATCH /admin/registrations/{id}` — race_office — Voll-Bearbeitung aller Felder
-  (Identität ändert match_key → Kollision 409; nutzt `model_fields_set` für nullable-Clearing)
-- `POST /admin/registrations/{id}/bib?bib_number=` — race_office
-- `POST /admin/registrations/{id}/reassign {competition_id}` — race_office
-- `POST /admin/registrations/{id}/payment/mark-paid` — race_office
-- `POST /admin/events/{id}/sepa-export?include_exported=` — race_office — CSV
-- `POST /admin/participants/merge {source, target}` — race_office
-- `POST /admin/events {name,year,event_date,…,competitions:[…]}` — race_office — neues Event + Strecken
-- `DELETE /admin/events/{id}` — **admin** — Event + abhängige Daten (Kaskade), Teilnehmer bleiben
-- `PATCH /admin/events/{id} {tshirt_options?, junior_cutoff_date?, tshirt_included?}` — race_office
-- `PATCH /admin/competitions/{id} {start_time?, price_cents?, price_junior_cents?}` — race_office
-- `POST /admin/events/{id}/recompute-times` — race_office — alle Laufzeiten neu berechnen/speichern
-- `GET /admin/events/{id}/results?competition_id=` — Vollwertung (inkl. nicht-öffentliche)
-- `GET|POST /admin/events/{id}/device-tokens` — timing — auflisten / anlegen (Klartext einmalig)
-- `DELETE /admin/device-tokens/{id}` — timing — sperren
+### Admin (`/admin`, Bearer, RBAC)
+- `POST /auth/login` · `GET /me`
+- `GET/PATCH /mail-settings` (Test/Live; PATCH nur admin)
+- Anmeldungen: `GET /registrations?event_id=&q=&limit=&offset=` ·
+  `GET/PATCH /registrations/{id}` · `POST /registrations/{id}/bib?bib_number=` ·
+  `POST /registrations/{id}/reassign` · `POST /registrations/{id}/payment/mark-paid`
+- `POST /participants/merge` · `POST /events` · `DELETE /events/{id}` (admin) ·
+  `PATCH /events/{id}` (tshirt_options, junior_cutoff_date, tshirt_included,
+  **certificate_offset**) · `POST /events/{id}/certificate-background` (Upload)
+- `PATCH /competitions/{id}` (start_time, price_*, **age_class_scheme,
+  gender_scoring**)
+- `POST /events/{id}/recompute-times` · `GET /events/{id}/results?competition_id=`
+- `POST /events/{id}/sepa-export?include_exported=`
+- Geräte-Tokens: `GET/POST /events/{id}/device-tokens` · `DELETE /device-tokens/{id}`
+- **Ergebnisdruck/Urkunden:**
+  `GET /events/{id}/competitions/{cid}/certificate-groups` (config-getriebene
+  Wertungsgruppen [Altersklasse × Geschlecht]) ·
+  `GET /events/{id}/competitions/{cid}/certificates?age_class=&gender=&background=&lang=`
+  (Sammel-PDF je Gruppe) ·
+  `GET /events/{id}/competitions/{cid}/certificates-all?background=&lang=`
+  (alle Urkunden, sortiert AK↑→Geschlecht→**schlechteste Platzierung zuerst**) ·
+  `GET /events/{id}/certificate?bib=&background=&lang=` (Einzel per Startnummer)
+- **Sponsoren:** `POST /sponsors` (Upload, Form: tier,name,url,file) ·
+  `PATCH /sponsors/{id}` (name,url) · `DELETE /sponsors/{id}` ·
+  `PATCH /sponsor-tiers` (Gewicht/Höhe je Klasse) ·
+  `PATCH /sponsor-display` (mode + optional marquee_seconds)
 
 ---
 
 ## 9. Frontend (SPA)
 
-Zwei Layout-Bereiche mit eigener Navigation:
+Zwei Layout-Bereiche mit eigener Navigation (`components/Layouts.tsx`).
 
 ### Läufer-Bereich (öffentlich)
 - `/teilnahme` — Anmeldeformular (Event, Strecke, Person, E-Mail, Team, T-Shirt,
-  Preis-Live-Anzeige, Zahlungsweg, Einwilligungen). Nach Absenden:
-  Verwaltungslink + Startnummer + PDF-Link (+ Mandatsreferenz bei SEPA).
-- `/teilnahme/ergebnisse` — Ergebnislisten (Ansichten: Gesamt / Altersklasse / Altersklasse & Geschlecht)
-- `/manage?token=…` — Selbstverwaltung (E-Mail, Strecke, Team, T-Shirt ändern; Status/Startnummer/Zahlung; PDF)
-- `/` → Weiterleitung auf `/teilnahme`
+  Preis-Live-Anzeige, Zahlungsweg, Einwilligungen). Nach Absenden: Verwaltungslink
+  + Startnummer + PDF (+ Mandatsref bei SEPA). **`<SponsorBar />` oben und unten.**
+- `/teilnahme/ergebnisse` — Ergebnisse (Gesamt / Altersklasse / AK & Geschlecht)
+- `/manage?token=` — Selbstverwaltung; Startnummer-PDF; **Urkunde** (bei Zeit);
+  **`<SponsorBar />` oben und unten.**
+- `/` → `/teilnahme`
 
 ### Staff-Bereich (Login/Rollen bzw. Geräte-Token)
-- `/team` — **Admin**: Suche (Name/Startnummer) + Voll-Bearbeitung
-- `/team/special` — **Special-Admin** (operativ): paginierte Anmeldungsliste
-  (+ „Laufzeiten berechnen"), Erfassungen je Startnummer (korrigieren/löschen),
-  interne Vollwertung, Geräte-Tokens (mit QR-Code)
-- `/team/veryspecial` — **Event-Verwaltung**: Event anlegen/löschen,
-  Event-Einstellungen (T-Shirt-Optionen, Jugend-Stichtag, T-Shirt inklusive),
-  Strecken & Startzeiten/Preise
-- `/team/sepa` — **SEPA-Export**
-- `/team/zeiterfassung` — **Zeiterfassung** (Kiosk)
+- `/team` — Admin: Suche (Name/Startnummer) + Voll-Bearbeitung
+- `/team/special` — operativ: Anmeldungsliste, „Laufzeiten berechnen",
+  Erfassungen je Startnummer (korrigieren/löschen/**manuell hinzufügen**), interne
+  Vollwertung, Geräte-Tokens (Code + QR **dauerhaft** sichtbar), Mail-Test/Live
+- `/team/veryspecial` — Events anlegen/löschen; Event-Einstellungen (T-Shirt,
+  Jugend-Stichtag, **Urkunden-Hintergrund + Druckversatz**); Strecken &
+  Startzeiten/Preise **+ AK-Schema + Geschlechtswertung**
+- `/team/sepa` — SEPA-Export
+- `/team/ergebnisdruck` — Lauf wählen → Wertungsgruppen mit Sammel-Download,
+  „Alle Urkunden des Laufs", Einzeldruck per Startnummer, Checkbox „Hintergrund
+  mitdrucken"
+- `/team/sponsoren` — Anzeigemodus (Rotation/Laufband + Tempo), Klassen (Gewicht/
+  Höhe), Upload (Klasse/Name/URL/Datei), Liste (Vorschau/Name/URL/Löschen)
+- `/team/zeiterfassung` — Zeiterfassung (Kiosk)
 
-Weiterleitungen alter Pfade: `/results`→`/teilnahme/ergebnisse`,
-`/admin`→`/team`, `/special-admin`→`/team/special`,
-`/timing?…`→`/team/zeiterfassung?…`.
+Alte Pfade leiten weiter (`/results`, `/admin`, `/special-admin`, `/timing?…`).
+Unten auf jeder Seite: Build-Zeile `Frontend <sha> · Backend <sha> · DB <rev>`.
 
 ### Zeiterfassungs-Seite (Kiosk)
-- Einrichtung: Event wählen + Geräte-Token eingeben (in `localStorage`) **oder**
-  QR-Code scannen (URL `/team/zeiterfassung?token=…&event=…`, wird nach Übernahme
-  aus der Adresszeile entfernt).
-- Erfassung: **grafisches Ziffernfeld** (Anzeige + Ziffern 0–9, C, ⌫, großer
-  ERFASSEN-Button) — keine Handytastatur. Beim Druck wird die **Gerätezeit sofort**
-  festgehalten.
-- **Robustheit:** Erfasste Paare landen in einer **in `localStorage`
-  persistierten Warteschlange** und werden per Auto-Retry (alle 4 s + beim Laden)
-  gesendet → überlebt Reload/Absturz/Offline.
+Einrichtung per Geräte-Code (localStorage) oder QR-Scan
+(`/team/zeiterfassung?token=&event=`). Erfassung über **grafisches Ziffernfeld**
+(keine Handytastatur), Gerätezeit sofort festgehalten. **Persistente
+localStorage-Queue** + Auto-Retry alle 4 s (überlebt Reload/Offline).
 
-### i18n
-Eigener leichter Provider: Wörterbuch de/en, `useI18n().t(key, vars)`,
-Platzhalter `{name}`. Sprache in `localStorage`. QR-Code **clientseitig**
-gerendert (Token darf nicht an externen Dienst).
+### Responsivität & i18n
+Mobile-Media-Query (≤640 px) stapelt `.row`-Formularzeilen (Bearbeiten-Ansicht),
+Tabellen scrollen horizontal, Buttons volle Breite. Eigener i18n-Provider
+(de/en), `useI18n().t(key, vars)`; QR-Code **clientseitig** gerendert.
+
+### Build-Kennung
+Frontend: `VITE_BUILD` (Git-SHA) via Vite-`define` `__APP_BUILD__` (sonst
+Zeitstempel). Backend: `BIBBY_BUILD` (Docker `--build-arg BUILD`).
 
 ---
 
-## 10. Konfiguration (Env `BIBBY_*`)
+## 10. Konfiguration (Env `BIBBY_*`, `backend/app/config.py`)
 
-- `database_url` (asyncpg; in Prod SSL via connect_args nötig)
-- `secret_key` — HMAC für Token-Hashing
-- `public_base_url` — Basis-URL der SPA (Links in Mails)
-- `field_encryption_key` — Fernet-Key für IBAN (Prod fest; sonst aus secret_key abgeleitet)
-- `bib_start_number` (=1)
-- `default_tshirt_options` (=["Kein T-Shirt (Spende)","XS","S","M","L","XL"])
-- `min_lap_seconds` (=60)
-- `default_currency` (="EUR")
-- SEPA-Mandat: `sepa_creditor_name`, `sepa_creditor_id`
-- TEM: `tem_secret_key` (nur Secret Key!), `tem_project_id`, `scw_region` (fr-par),
-  `tem_from_email` (verifizierte Domäne), `tem_from_name`
-- Mail-Test: `mail_test_mode` (=true), `mail_test_recipient`
-- `cors_origins` — erlaubte SPA-Origins
+`database_url` (asyncpg) · `database_ssl` (Prod true) · `secret_key` (Token-HMAC)
+· `public_base_url` · `build` · `field_encryption_key` (Fernet, IBAN) ·
+`bib_start_number`=1 · `default_tshirt_options` · `min_lap_seconds`=60
+(**vestigial** nach Runden-Entfernung) · SEPA `sepa_creditor_name/_id` · TEM
+`tem_secret_key` (nur Secret Key!), `tem_project_id`, `scw_region`,
+`tem_from_email`, `tem_from_name` · `mail_test_mode`=true, `mail_test_recipient`
+(Laufzeit-Override via app_setting) · `cors_origins`.
+Terraform-Variablen zusätzlich: `min_scale` (Container-Warmhaltung), `min_lap_seconds`.
 
 ---
 
 ## 11. Lokale Entwicklung & Deployment
 
-**Lokal:** Docker-Compose = PostgreSQL + API-Container. Der Container-Befehl:
-`alembic upgrade head && python -m app.seed && uvicorn --reload`. Frontend per
-`npm run dev`. Seed legt Demo-Daten an (Events 2025/2026, mehrere Läufer inkl.
-einer SEPA-Anmeldung mit gültiger Test-IBAN `DE89370400440532013000`,
-Admin-User `admin@example.com` / Passwort `admin`, Jugend-Stichtag 2008-01-01,
-Preise Erw./Jugend, T-Shirt inklusive).
+**Lokal:** docker-compose (postgres:16 + API). Seed (`python -m app.seed`,
+nur lokal) legt Demo-Daten an (Admin `admin@example.com`/`admin`). Frontend
+`npm run dev`. **Lasttest:** `python -m app.loadtest seed [N] [JAHR]` / `clear`
+(aus `backend/`, gleiche Env wie Alembic) — Testdaten `@loadtest.de`,
+Startnummern ab 90001, `clear` matcht `%@loadtest.%`.
 
-**Scaleway (Terraform):** Serverless SQL, Container-Registry, Serverless
-Container (FastAPI, IAM-Key für DB), Object-Storage-Buckets (SPA-Website +
-privat für PDFs), TEM-Domäne, Secrets als env. Deploy: `terraform apply` →
-Image bauen & pushen → Migrationen einspielen → SPA bauen & hochladen →
-TEM-DNS setzen. **In Prod laufen Migrationen nicht automatisch** (Container
-startet nur uvicorn) und der **Seed darf nicht laufen**.
+**Prod (Scaleway, live):** SPA-Bucket `bibby-spa-runbibby` hinter Edge Services
+(`https://anmeldung.run-bibby.de`), Serverless Container (`min_scale=0` → Kaltstart
+~9 s beim ersten Zugriff, per tfvars `min_scale=1` warmhaltbar), Serverless SQL,
+TEM. **Deploy-Skript** `./deploy.sh [all|backend|frontend]` im Repo-Root: baut
+das Image (`--no-cache --pull --platform linux/amd64`, `--build-arg BUILD=<sha>`),
+pusht, **`scw container container redeploy`** (Terraform rollt bei gleichem
+`:latest`-Tag NICHT neu aus!), baut/synct das SPA. **Migrationen laufen MANUELL**
+(lokales venv gegen Prod-DB, `alembic upgrade head`) — NICHT beim Container-Start,
+NICHT im Seed. Reihenfolge: **Migration zuerst, dann deploy.sh** (neues Modell
+referenziert neue Spalten → sonst 500 auf `/events`).
+
+**Prod-Fallen (siehe memory):** Scaleway-Project-ID (`d7cd73e2…`) ≠ Principal-UUID
+(`d0e6b670…`, DB-User & DKIM-Selector); `unset TF_VAR_project_id` vor `tofu apply`;
+`EmailStr` lehnt `.invalid`-Adressen ab (deshalb ist `AdminRegistrationDetail.email`
+ein `str`, kein `EmailStr`).
 
 ---
 
 ## 12. Bekannte offene Punkte / Nicht-Ziele
 
-- CV-App (Bilderkennung bib/Zeit) ist ein **separates Projekt**; nutzt denselben
+- **Offen (Stand 2026-07-14):** Prod-Migrationen 0011–0015 noch NICHT eingespielt
+  und der letzte Deploy steht aus (erst `alembic upgrade head`, dann `./deploy.sh`).
+- `mail_test_mode` steht auf true — für echte Teilnehmer-Mails auf false.
+- pain.008-SEPA-XML (nur CSV vorhanden); Betrags-Neuberechnung bei Admin-Änderung
+  (Snapshot); dedizierter least-privilege DB-Key; Benutzerverwaltung im UI
+  (weitere Organisatoren) — aktuell nur via `python -m app.create_admin`.
+- CV-App (Bilderkennung bib/Zeit) = separates Projekt, nutzt denselben
   Ingestion-Endpunkt mit Geräte-Token.
-- pain.008-SEPA-XML (nur CSV vorhanden).
-- Betrags-Neuberechnung bei nachträglicher Admin-Änderung (Betrag ist Snapshot).
-- asyncpg-SSL-`connect_args` für Serverless SQL (Prod).
-- CDN/TLS/eigene Domäne via Scaleway Edge Services (nur Object-Storage-Website).
-- Login-Härtung (Einmal-Token gegen Session tauschen).
-- Benutzerverwaltung im UI (weitere Organisatoren/Passwörter) — aktuell nur Seed.
-- Prod-Migrations-Ablauf (separater Schritt/Job).
+- `category`-Tabelle, `competition.lap_count`, `timing_record.lap_index` und
+  `min_lap_seconds` sind **vestigial** (aus dem entfernten Rundenkonzept) und
+  könnten später bereinigt werden.
