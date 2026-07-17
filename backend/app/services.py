@@ -11,7 +11,7 @@ import unicodedata
 import uuid
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import geo, mailer
@@ -20,6 +20,7 @@ from .models import (
     AppSetting,
     BibAssignment,
     Competition,
+    DeviceToken,
     Event,
     Participant,
     Registration,
@@ -759,7 +760,8 @@ def generate_mandate_reference(year: int) -> str:
 # Laufzeit-Konfiguration (app_setting) – z. B. Mail-Testmodus umschaltbar
 # ohne Redeploy. Ist kein Wert gesetzt, gilt der Env-Default aus settings.
 # =========================================================================
-MAIL_TEST_MODE_KEY = "mail_test_mode"
+MAIL_TEST_MODE_KEY = "mail_test_mode"   # alt (bool), nur noch als Fallback gelesen
+MAIL_MODE_KEY = "mail_mode"            # neu: live | test | off
 # Betreff/Text der Anmeldebestätigung, zur Laufzeit editierbar (Special-Admin).
 # {link} im Text wird durch den persönlichen Verwaltungslink ersetzt.
 MAIL_TEXT_KEYS = {
@@ -886,12 +888,28 @@ def normalize_logo(data: bytes, mime: str) -> tuple[bytes, str]:
         return data, mime
 
 
-async def get_mail_test_mode(session: AsyncSession) -> bool:
-    """Effektiver Testmodus: DB-Override (falls gesetzt) vor Env-Default."""
-    stored = await get_app_setting(session, MAIL_TEST_MODE_KEY)
-    if stored is None:
-        return settings.mail_test_mode
-    return stored == "true"
+MAIL_MODES = (mailer.MODE_LIVE, mailer.MODE_TEST, mailer.MODE_OFF)
+
+
+async def get_mail_mode(session: AsyncSession) -> str:
+    """Effektiver Versandmodus: 'live' | 'test' | 'off'.
+
+    Reihenfolge: neuer Schlüssel `mail_mode` -> alter Schalter `mail_test_mode`
+    (Rückwärtskompatibilität für bestehende Installationen) -> Env-Default.
+    """
+    stored = await get_app_setting(session, MAIL_MODE_KEY)
+    if stored in MAIL_MODES:
+        return stored
+    legacy = await get_app_setting(session, MAIL_TEST_MODE_KEY)
+    if legacy is not None:
+        return mailer.MODE_TEST if legacy == "true" else mailer.MODE_LIVE
+    return mailer.MODE_TEST if settings.mail_test_mode else mailer.MODE_LIVE
+
+
+async def set_mail_mode(session: AsyncSession, mode: str) -> None:
+    if mode not in MAIL_MODES:
+        raise ValueError(f"Unbekannter Versandmodus: {mode}")
+    await set_app_setting(session, MAIL_MODE_KEY, mode)
 
 
 async def get_mail_texts(session: AsyncSession) -> dict[str, str]:
@@ -911,6 +929,71 @@ async def set_mail_texts(session: AsyncSession, texts: dict[str, str]) -> None:
             await set_app_setting(session, key, value)
 
 
+# =========================================================================
+# Lasttest-Daten wieder entfernen
+# =========================================================================
+# Alles, was der Lasttest anlegt, ist eindeutig markiert – nur DAS wird gelöscht.
+LOADTEST_EMAIL_LIKE = "%@loadtest.%"     # Anmeldungen (auch Alt-Daten .invalid)
+LOADTEST_TOKEN_LABEL = "loadtest-"       # Geräte-Tokens des Zeiterfassungs-Lasttests
+LOADTEST_DEDUP_PREFIX = "ltload-"        # Erfassungen des Zeiterfassungs-Lasttests
+
+
+async def purge_loadtest_data(session: AsyncSession) -> dict[str, int]:
+    """Entfernt ausschließlich markierte Lasttest-Daten. Echte Anmeldungen,
+    Zeiten und Geräte bleiben unberührt. Rückgabe: Anzahlen je Art."""
+    rows = (
+        await session.execute(
+            select(Registration.id, Registration.participant_id).where(
+                Registration.email.like(LOADTEST_EMAIL_LIKE)
+            )
+        )
+    ).all()
+    reg_ids = [r.id for r in rows]
+    part_ids = list({r.participant_id for r in rows})
+
+    timings = 0
+    if reg_ids:
+        # Erfassungen hängen nicht per FK an der Anmeldung -> über die
+        # Startnummern der Lasttest-Anmeldungen gezielt entfernen.
+        bibs = (
+            await session.execute(
+                select(BibAssignment.event_id, BibAssignment.bib_number).where(
+                    BibAssignment.registration_id.in_(reg_ids)
+                )
+            )
+        ).all()
+        for ev, b in bibs:
+            res = await session.execute(
+                delete(TimingRecord).where(
+                    TimingRecord.event_id == ev, TimingRecord.bib_number == b
+                )
+            )
+            timings += res.rowcount or 0
+
+    # Erfassungen des API-Lasttests: laufen auf Startnummern OHNE Anmeldung und
+    # sind nur am dedup_key erkennbar.
+    res = await session.execute(
+        delete(TimingRecord).where(TimingRecord.dedup_key.like(f"{LOADTEST_DEDUP_PREFIX}%"))
+    )
+    timings += res.rowcount or 0
+
+    if reg_ids:
+        # Anmeldung löschen -> Payment + BibAssignment kaskadieren.
+        await session.execute(delete(Registration).where(Registration.id.in_(reg_ids)))
+        await session.execute(delete(Participant).where(Participant.id.in_(part_ids)))
+
+    tokens = await session.execute(
+        delete(DeviceToken).where(DeviceToken.label.like(f"{LOADTEST_TOKEN_LABEL}%"))
+    )
+    await session.commit()
+    return {
+        "registrations": len(reg_ids),
+        "participants": len(part_ids),
+        "timings": timings,
+        "device_tokens": tokens.rowcount or 0,
+    }
+
+
 async def send_confirmation_email(
     registration: Registration, manage_token: str, session: AsyncSession
 ) -> None:
@@ -928,10 +1011,10 @@ async def send_confirmation_email(
     # sonstige geschweifte Klammern im Text nicht als Format-Felder gedeutet werden).
     text = texts[f"body_{lang}"].replace("{link}", link)
 
-    test_mode = await get_mail_test_mode(session)
+    mode = await get_mail_mode(session)
     try:
         await mailer.send_email(
-            to=registration.email, subject=subject, text=text, test_mode=test_mode
+            to=registration.email, subject=subject, text=text, mode=mode
         )
     except Exception as exc:  # noqa: BLE001 – Mailversand darf nicht blockieren
         print(f"[email] Versand an {registration.email} fehlgeschlagen: {exc}")

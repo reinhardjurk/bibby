@@ -189,15 +189,18 @@ class SessionToken(BaseModel):
 
 
 class MailSettings(BaseModel):
-    """Aktueller (effektiver) Mail-Testmodus + Kontext für die Anzeige."""
+    """Effektiver Versandmodus + Kontext für die Anzeige.
 
-    test_mode: bool
+    mode: 'live' = echte Empfänger · 'test' = alles an test_recipient umgeleitet
+    (wird weiter versendet!) · 'off' = gar kein Versand (für Lasttests)."""
+
+    mode: str
     test_recipient: str
     overridden: bool  # True = per app_setting gesetzt, False = Env-Default
 
 
 class MailModeUpdate(BaseModel):
-    test_mode: bool
+    mode: str = Field(pattern="^(live|test|off)$")
 
 
 class MailTexts(BaseModel):

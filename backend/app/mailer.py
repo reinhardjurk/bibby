@@ -1,9 +1,14 @@
 """E-Mail-Versand über Scaleway Transactional Email (TEM).
 
-- Test-Modus (settings.mail_test_mode): leitet ALLE Mails an
-  settings.mail_test_recipient um; der ursprüngliche Empfänger steht im Betreff.
-- Ohne TEM-API-Key: Entwicklungs-Fallback, der die Mail nur ausgibt (loggt).
-- Absender ist settings.tem_from_email; die Domäne muss in TEM verifiziert sein.
+Drei Versandmodi (zur Laufzeit umschaltbar, s. services.get_mail_mode):
+- **live**: Mails gehen an die echten Empfänger.
+- **test**: ALLE Mails werden an settings.mail_test_recipient umgeleitet; der
+  ursprüngliche Empfänger steht im Betreff. Es wird also WEITER versendet.
+- **off**:  Es wird GAR NICHT versendet (nur geloggt). Nötig für Lasttests –
+  sonst erzeugt jede Testanmeldung eine echte Mail.
+
+Ohne TEM-API-Key wird ebenfalls nur geloggt (lokale Entwicklung). Absender ist
+settings.tem_from_email; die Domäne muss in TEM verifiziert sein.
 """
 
 from __future__ import annotations
@@ -12,6 +17,10 @@ import httpx
 
 from .config import settings
 
+MODE_LIVE = "live"
+MODE_TEST = "test"
+MODE_OFF = "off"
+
 
 async def send_email(
     *,
@@ -19,12 +28,17 @@ async def send_email(
     subject: str,
     text: str,
     html: str | None = None,
-    test_mode: bool | None = None,
+    mode: str | None = None,
 ) -> None:
-    # test_mode überschreibt den Env-Default (kommt zur Laufzeit aus app_setting).
-    effective_test_mode = settings.mail_test_mode if test_mode is None else test_mode
+    # mode überschreibt den Env-Default (kommt zur Laufzeit aus app_setting).
+    effective = mode or (MODE_TEST if settings.mail_test_mode else MODE_LIVE)
+
+    if effective == MODE_OFF:
+        print(f"[email off] unterdrückt: to={to} subject={subject!r}")
+        return
+
     recipient = to
-    if effective_test_mode:
+    if effective == MODE_TEST:
         # Sicherheitsnetz: nie echte Empfänger im Testbetrieb.
         recipient = settings.mail_test_recipient or settings.tem_from_email
         subject = f"[TEST → {to}] {subject}"

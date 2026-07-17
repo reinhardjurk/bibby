@@ -166,9 +166,11 @@ Nach Auswahl des Events findest du hier die operativen Werkzeuge:
 - **Zeitnahme-Geräte:** Erzeugt Zugangs-Codes (mit QR-Code) für die
   Zeiterfassungs-Geräte. Code/QR bleiben **dauerhaft sichtbar**, damit ein Gerät
   jederzeit neu eingerichtet werden kann.
-- **Mailversand Test/Live:** Schalter zwischen **Test** (alle Mails gehen an
-  eine feste Testadresse) und **Live** (echte Empfänger). Das Umschalten auf
-  Live ist bewusst **nur für admin** und muss bestätigt werden.
+- **E-Mail-Versand:** Schalter mit drei Zuständen — **Live** (echte Empfänger),
+  **Test** (alle Mails werden an eine feste Testadresse umgeleitet) und **Aus**
+  (es wird gar nichts versendet, nur für Lasttests). Das Umschalten ist **nur
+  für admin**; „Live" muss zusätzlich bestätigt werden. Nach einem Lasttest den
+  Schalter wieder auf **Test** oder **Live** zurückstellen.
 - **Mailvorlage:** Betreff und Text der Anmeldebestätigung (Deutsch/Englisch)
   direkt bearbeiten. Der Platzhalter **`{link}`** im Text wird durch den
   persönlichen Verwaltungslink des Teilnehmers ersetzt — er muss erhalten
@@ -367,5 +369,5 @@ ersten zwei Ziffern), nicht über die exakte Adresse:
 | **Urkunde/Ergebnis fehlt für einen Teilnehmer** | Es liegt keine Zielzeit vor. Im **Special-Admin** unter „Erfassungen zu einer Startnummer" prüfen oder manuell eine Zeit hinzufügen. |
 | **Ein Tab/Button fehlt bei mir** | Dein Zugang hat die nötige Rolle nicht — beim technischen Team melden. |
 | **Login klappt nicht** | E-Mail/Passwort prüfen; Zugänge legt der technische Administrator an. Nach 72 h ist ein erneuter Login nötig. |
-| **Teilnehmer bekommt keine E-Mail** | Ggf. steht der Mailversand auf **Test** (Special-Admin → Mailversand Test/Live). Für echte Mails auf **Live** schalten (nur admin). |
+| **Teilnehmer bekommt keine E-Mail** | Der Mailversand steht auf **Test** oder **Aus** (Special-Admin → E-Mail-Versand). Für echte Mails auf **Live** schalten (nur admin). „Aus" bleibt manchmal nach einem Lasttest stehen. |
 | **Die erste Seite lädt lange** | Kaltstart des Servers (einige Sekunden), wenn länger niemand zugegriffen hat — danach schnell. |

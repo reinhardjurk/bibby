@@ -195,9 +195,9 @@ async def get_mail_settings(
     _user=Depends(require_roles("admin", "race_office", "timing", "viewer")),
     session: AsyncSession = Depends(get_session),
 ) -> MailSettings:
-    stored = await services.get_app_setting(session, services.MAIL_TEST_MODE_KEY)
+    stored = await services.get_app_setting(session, services.MAIL_MODE_KEY)
     return MailSettings(
-        test_mode=await services.get_mail_test_mode(session),
+        mode=await services.get_mail_mode(session),
         test_recipient=settings.mail_test_recipient,
         overridden=stored is not None,
     )
@@ -209,12 +209,10 @@ async def update_mail_settings(
     _user=Depends(require_roles("admin")),  # heikel: nur Admin darf Live schalten
     session: AsyncSession = Depends(get_session),
 ) -> MailSettings:
-    await services.set_app_setting(
-        session, services.MAIL_TEST_MODE_KEY, "true" if body.test_mode else "false"
-    )
+    await services.set_mail_mode(session, body.mode)
     await session.commit()
     return MailSettings(
-        test_mode=body.test_mode,
+        mode=body.mode,
         test_recipient=settings.mail_test_recipient,
         overridden=True,
     )
@@ -615,6 +613,18 @@ async def certificate_by_bib(
     return await _certificate_response(
         [cert], event, f"urkunde-{bib}.pdf", with_background=background
     )
+
+
+# --- Lasttest-Daten entfernen (nur admin) ---------------------------------
+@router.post("/loadtest/clear")
+async def loadtest_clear(
+    _user=Depends(require_roles("admin")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Löscht ausschließlich markierte Lasttest-Daten (Anmeldungen @loadtest.*,
+    deren Erfassungen, Erfassungen des API-Lasttests und dessen Geräte-Tokens).
+    Echte Daten bleiben unberührt. Ermöglicht das Aufräumen ohne DB-Zugang."""
+    return await services.purge_loadtest_data(session)
 
 
 # --- Statistiken (Moderation) ---------------------------------------------

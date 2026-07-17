@@ -381,10 +381,10 @@ export const adminApi = {
       `/admin/events/${eventId}/competitions/${competitionId}/certificate-groups`
     ),
   getMailSettings: () => adminReq<MailSettings>("/admin/mail-settings"),
-  setMailMode: (testMode: boolean) =>
+  setMailMode: (mode: MailMode) =>
     adminReq<MailSettings>("/admin/mail-settings", {
       method: "PATCH",
-      body: JSON.stringify({ test_mode: testMode }),
+      body: JSON.stringify({ mode }),
     }),
   getMailTexts: () => adminReq<MailTexts>("/admin/mail-texts"),
   setMailTexts: (texts: MailTexts) =>
@@ -456,8 +456,9 @@ export type AdminUser = {
   roles: string[];
 };
 
+export type MailMode = "live" | "test" | "off";
 export type MailSettings = {
-  test_mode: boolean;
+  mode: MailMode;
   test_recipient: string;
   overridden: boolean;
 };

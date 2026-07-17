@@ -5,6 +5,7 @@ import {
   STAFF_ROLES,
   type AdminRegistration,
   type AdminUser,
+  type MailMode,
   type MailSettings,
   type MailTexts,
   type TimingRow,
@@ -123,7 +124,7 @@ function RecomputeTimes({ eventId, onDone }: { eventId: string; onDone: () => vo
   );
 }
 
-/** Laufzeit-Schalter Test-/Live-Mailversand (Änderung nur für Admin). */
+/** Laufzeit-Schalter Mailversand: live / test / aus (Änderung nur für Admin). */
 function MailModeToggle({ roles }: { roles: string[] }) {
   const { t } = useI18n();
   const isAdmin = roles.includes("admin");
@@ -135,21 +136,23 @@ function MailModeToggle({ roles }: { roles: string[] }) {
     adminApi.getMailSettings().then(setMs).catch((e) => setErr(String(e)));
   }, []);
 
-  async function toggle() {
-    if (!ms) return;
-    const next = !ms.test_mode;
-    // Von Test -> Live: bewusst bestätigen (dann gehen Mails an echte Empfänger!).
-    if (!next && !window.confirm(t("mail.confirmLive"))) return;
+  async function choose(mode: MailMode) {
+    if (!ms || mode === ms.mode) return;
+    // Auf Live umschalten: bewusst bestätigen (Mails gehen an echte Empfänger!).
+    if (mode === "live" && !window.confirm(t("mail.confirmLive"))) return;
     setBusy(true);
     setErr(null);
     try {
-      setMs(await adminApi.setMailMode(next));
+      setMs(await adminApi.setMailMode(mode));
     } catch (e) {
       setErr(String(e));
     } finally {
       setBusy(false);
     }
   }
+
+  const badge = (m: MailMode) =>
+    m === "live" ? "badge badge-live" : "badge";
 
   return (
     <section className="card">
@@ -158,22 +161,27 @@ function MailModeToggle({ roles }: { roles: string[] }) {
       {ms && (
         <>
           <p>
-            {ms.test_mode ? (
-              <>
-                <span className="badge">{t("mail.stateTest")}</span>{" "}
-                {t("mail.testHint", { recipient: ms.test_recipient })}
-              </>
-            ) : (
-              <>
-                <span className="badge badge-live">{t("mail.stateLive")}</span>{" "}
-                {t("mail.liveHint")}
-              </>
-            )}
+            <span className={badge(ms.mode)}>{t(`mail.state.${ms.mode}`)}</span>{" "}
+            {ms.mode === "live"
+              ? t("mail.liveHint")
+              : ms.mode === "test"
+                ? t("mail.testHint", { recipient: ms.test_recipient })
+                : t("mail.offHint")}
           </p>
           {isAdmin ? (
-            <button onClick={toggle} disabled={busy}>
-              {ms.test_mode ? t("mail.switchToLive") : t("mail.switchToTest")}
-            </button>
+            <div className="row" style={{ flexWrap: "wrap" }}>
+              {(["live", "test", "off"] as MailMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => choose(m)}
+                  disabled={busy || ms.mode === m}
+                  className={ms.mode === m ? "primary" : undefined}
+                  style={{ flex: "0 0 auto" }}
+                >
+                  {t(`mail.switch.${m}`)}
+                </button>
+              ))}
+            </div>
           ) : (
             <p className="hint">{t("mail.adminOnly")}</p>
           )}

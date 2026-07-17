@@ -105,16 +105,41 @@ Als lokaler Fallback existiert `./deploy.sh [all|backend|frontend]`.
 
 ## Lasttest
 
+Zwei Klassen von Befehlen (`python -m app.loadtest <befehl>`):
+
+**Direkt in die DB** — schneller Seeder für UI/Statistik (kein echter Lasttest,
+braucht `BIBBY_DATABASE_URL` wie Alembic):
+
 ```bash
-# aus backend/, gleiche Env wie Alembic
 python -m app.loadtest seed [N] [JAHR]   # Testdaten (@loadtest.de, Startnr. ab 90001)
-python -m app.loadtest clear             # entfernt Testdaten (matcht %@loadtest.%)
+python -m app.loadtest clear             # entfernt ALLE Lasttest-Daten
 ```
 
 `seed` erzeugt auch Teams (gezielt Dreier-Gruppen → Staffeln, plus Vereine/Paare,
 die bewusst keine Staffel ergeben), gestreute Postleitzahlen und die freiwilligen
-Angaben — damit lassen sich Staffelwertung und Statistik-Tab realistisch testen.
-Zeiten und Staffeln entstehen erst durch **„Alle Laufzeiten berechnen"**.
+Angaben. Zeiten und Staffeln entstehen erst durch **„Alle Laufzeiten berechnen"**.
+
+**Über die echte API** — laufen **ohne DB-Zugang**, also auch **gegen Production**
+(brauchen nur einen Admin-Login):
+
+```bash
+python -m app.loadtest api-register URL EMAIL PASSWORT [N] [PARALLEL] [JAHR]
+python -m app.loadtest api-timing   URL EMAIL PASSWORT [ZEITNEHMER] [BATCH] [STARTNR] [JAHR]
+python -m app.loadtest api-clear    URL EMAIL PASSWORT
+```
+
+- `api-register` testet `POST /registrations` inkl. der **Startnummernvergabe
+  unter Nebenläufigkeit** (keine doppelten/lückenhaften Nummern). Bricht ab,
+  wenn der Mailversand nicht auf **„Aus"** steht — sonst erzeugt jede Anmeldung
+  eine echte Bestätigungsmail.
+- `api-timing` testet die **Ingestion-API** (mehrere Zeitnehmer + Offline-Queue);
+  prüft Durchsatz, Latenz (p50/p95/max) und die Idempotenz der Wiederholung.
+  Nutzt Startnummern ab 90001, berührt echte Anmeldungen nie.
+- `api-clear` löscht alle Lasttest-Daten (auch der API-Läufe) über die Admin-API.
+
+**Mailversand-Schalter** (Special-Admin → E-Mail-Versand): **Live** / **Test**
+(Umleitung an die Testadresse) / **Aus** (gar kein Versand). Für den Anmelde-
+Lasttest auf **Aus** stellen und danach zurück auf **Test**.
 
 Details je Komponente in `backend/README.md`, `frontend/README.md`,
 `infra/README.md`.
