@@ -128,6 +128,10 @@ class Registration(Base):
     team: Mapped[str | None] = mapped_column(String)
     # Gewählte T-Shirt-Option (aus event.tshirt_options).
     tshirt: Mapped[str | None] = mapped_column(String)
+    # Freiwillige Angaben aus dem Anmeldeformular (nur Statistik, keine Pflicht).
+    postal_code: Mapped[str | None] = mapped_column(String)
+    # Wie die Person von der Veranstaltung erfahren hat (Code, s. schemas).
+    heard_about: Mapped[str | None] = mapped_column(String)
     # Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status: Mapped[str] = mapped_column(String, default="confirmed")
     # Gespeicherte Netto-Laufzeit (Sek.), berechnet per "Alle Laufzeiten berechnen".

@@ -410,6 +410,17 @@ export function EditRegistration({
       {detail.payment_iban_masked && (
         <p className="hint">{t("manage.iban")}: {detail.payment_iban_masked}</p>
       )}
+      {(detail.postal_code || detail.heard_about) && (
+        <p className="hint">
+          {detail.postal_code && <>{t("register.postalCode")}: {detail.postal_code}</>}
+          {detail.postal_code && detail.heard_about && " · "}
+          {detail.heard_about && (
+            <>
+              {t("register.heardAbout")} {t(`heard.${detail.heard_about}`)}
+            </>
+          )}
+        </p>
+      )}
 
       <label className="check">
         <input type="checkbox" checked={form.consent_data} onChange={(e) => set({ consent_data: e.target.checked })} />

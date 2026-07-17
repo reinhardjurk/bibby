@@ -60,7 +60,7 @@ export function ManagePage() {
   return (
     <>
     <SiteLogo />
-    <SponsorBar />
+    <SponsorBar position="top" />
     <form className="card" onSubmit={save}>
       <h2>{t("manage.heading")}</h2>
       <p>
@@ -136,7 +136,7 @@ export function ManagePage() {
         </p>
       )}
     </form>
-    <SponsorBar />
+    <SponsorBar position="bottom" />
     </>
   );
 }

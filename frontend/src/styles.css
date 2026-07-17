@@ -193,6 +193,61 @@ code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-brea
    rechts zu schieben. Passt die Tabelle, bleibt sie volle Breite (width:100%). */
 .table-scroll { overflow-x: auto; max-width: 100%; }
 
+/* --- Info-"i" mit Zusatztext (Hover + Fokus, also auch Touch/Tastatur) --- */
+.infotip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  cursor: help;
+}
+.infotip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 11px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  user-select: none;
+}
+.infotip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: max-content;
+  max-width: min(280px, 70vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--fg);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+}
+.infotip:hover .infotip-bubble,
+.infotip:focus .infotip-bubble,
+.infotip:focus-within .infotip-bubble {
+  opacity: 1;
+  visibility: visible;
+}
+/* Nahe am linken Rand nicht aus dem Viewport laufen */
+@media (max-width: 640px) {
+  .infotip-bubble { left: 0; transform: none; }
+}
+
 /* --- Kopf-Logo (global), oben mittig --- */
 .site-logo {
   display: block;
@@ -308,4 +363,26 @@ code { background: var(--badge); padding: 2px 6px; border-radius: 4px; word-brea
 
   /* Sponsoren: schmalerer Rahmen, Höhe wird durch die Klasse begrenzt */
   .sponsors { padding: 10px; margin: 12px 0; }
+
+  /* Sponsorenleisten schweben oben und unten; die Seite scrollt darunter durch.
+     Das body-Padding hält exakt die gemessene Bandhöhe frei (CSS-Variablen
+     werden von <SponsorBar position=…> gesetzt). */
+  .sponsors--top,
+  .sponsors--bottom {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  .sponsors--top { top: 0; border-top: none; }
+  .sponsors--bottom { bottom: 0; border-bottom: none; }
+
+  body {
+    padding-top: var(--sponsor-top, 0px);
+    padding-bottom: var(--sponsor-bottom, 0px);
+  }
 }

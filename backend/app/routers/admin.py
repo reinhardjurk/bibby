@@ -738,6 +738,8 @@ async def _registration_detail(
         team=reg.team,
         tshirt=reg.tshirt,
         tshirt_options=event_tshirt_options(event),
+        postal_code=reg.postal_code,
+        heard_about=reg.heard_about,
         consent_data=reg.consent_data,
         consent_publish=reg.consent_publish,
         status=reg.status,

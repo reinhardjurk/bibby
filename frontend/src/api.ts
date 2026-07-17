@@ -247,6 +247,8 @@ export type AdminRegistrationDetail = {
   payment_method: string | null;
   payment_status: string | null;
   payment_iban_masked: string | null;
+  postal_code: string | null;
+  heard_about: string | null;
 };
 
 export type AdminRegistrationUpdate = Partial<{

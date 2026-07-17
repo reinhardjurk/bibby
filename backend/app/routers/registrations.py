@@ -56,6 +56,8 @@ async def create_registration(
         language=body.language,
         team=(body.team or "").strip() or None,
         tshirt=body.tshirt or None,
+        postal_code=(body.postal_code or "").strip() or None,
+        heard_about=body.heard_about,
         manage_token_hash=hash_token(raw_token),
         consent_data=body.consent_data,
         consent_publish=body.consent_publish,

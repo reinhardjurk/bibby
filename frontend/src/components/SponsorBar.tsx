@@ -1,6 +1,35 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, type SponsorDto, type SponsorsDto } from "../api";
 import { useI18n } from "../i18n";
+
+/** Wo die Leiste sitzt. Auf Mobilgeräten wird sie damit oben bzw. unten fixiert
+ *  (die Seite scrollt darunter durch) – siehe .sponsors--top/--bottom in styles.css. */
+export type SponsorBarPosition = "top" | "bottom";
+
+/** Misst die tatsächliche Bandhöhe und legt sie als CSS-Variable ab, damit der
+ *  Seiteninhalt per body-Padding genau um die fixierten Leisten freigehalten wird. */
+function useBandHeightVar(
+  position: SponsorBarPosition | undefined,
+  ref: React.RefObject<HTMLElement | null>
+) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!position || !el) return;
+    const varName = position === "top" ? "--sponsor-top" : "--sponsor-bottom";
+    const apply = () =>
+      document.documentElement.style.setProperty(varName, `${el.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty(varName);
+    };
+  }, [position, ref]);
+}
+
+const barClass = (position?: SponsorBarPosition, extra = "") =>
+  ["sponsors", extra, position ? `sponsors--${position}` : ""].filter(Boolean).join(" ");
 
 /** Dauer eines Anzeige-Slots im Rotationsmodus. Pro Slot wird eine Klasse nach
  *  ihrem Gewicht gelost -> über die Zeit exakt das konfigurierte Verhältnis. */
@@ -50,7 +79,7 @@ function Logo({
   );
 }
 
-export function SponsorBar() {
+export function SponsorBar({ position }: { position?: SponsorBarPosition } = {}) {
   const [data, setData] = useState<SponsorsDto | null>(null);
 
   useEffect(() => {
@@ -64,14 +93,20 @@ export function SponsorBar() {
   }, []);
 
   if (!data || data.items.length === 0) return null;
-  return data.display === "marquee" ? <Marquee data={data} /> : <Rotator data={data} />;
+  return data.display === "marquee" ? (
+    <Marquee data={data} position={position} />
+  ) : (
+    <Rotator data={data} position={position} />
+  );
 }
 
 /** Ein Logo, rotierend (klassengewichtet). Immer genau EIN Bild im DOM. */
-function Rotator({ data }: { data: SponsorsDto }) {
+function Rotator({ data, position }: { data: SponsorsDto; position?: SponsorBarPosition }) {
   const { t } = useI18n();
   const [current, setCurrent] = useState<SponsorDto | null>(null);
   const cursors = useRef<Map<number, number>>(new Map()); // Round-Robin je Klasse
+  const barRef = useRef<HTMLElement | null>(null);
+  useBandHeightVar(position, barRef);
 
   useEffect(() => {
     const byTier = new Map<number, SponsorDto[]>();
@@ -105,7 +140,12 @@ function Rotator({ data }: { data: SponsorsDto }) {
 
   if (!current) return null;
   return (
-    <aside className="sponsors" style={{ height: bandHeight(data) }} aria-label={t("sponsors.label")}>
+    <aside
+      ref={barRef}
+      className={barClass(position)}
+      style={{ height: bandHeight(data) }}
+      aria-label={t("sponsors.label")}
+    >
       <Logo
         key={current.id}
         sponsor={current}
@@ -118,14 +158,17 @@ function Rotator({ data }: { data: SponsorsDto }) {
 }
 
 /** Laufband: alle Logos scrollen endlos horizontal (Größe je Klasse). */
-function Marquee({ data }: { data: SponsorsDto }) {
+function Marquee({ data, position }: { data: SponsorsDto; position?: SponsorBarPosition }) {
   const { t } = useI18n();
+  const barRef = useRef<HTMLElement | null>(null);
+  useBandHeightVar(position, barRef);
   // Track verdoppeln -> nahtlose Schleife bei translateX(-50%).
   const track = [...data.items, ...data.items];
   const duration = data.marquee_seconds; // Sekunden pro Durchlauf (konfigurierbar)
   return (
     <aside
-      className="sponsors marquee"
+      ref={barRef}
+      className={barClass(position, "marquee")}
       style={{ height: bandHeight(data) }}
       aria-label={t("sponsors.label")}
     >

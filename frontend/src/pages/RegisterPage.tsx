@@ -1,9 +1,20 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type CompetitionDto, type EventDto, type RegistrationOut } from "../api";
+import { InfoTip } from "../components/InfoTip";
 import { SiteLogo } from "../components/SiteLogo";
 import { SponsorBar } from "../components/SponsorBar";
 import { TeamInput } from "../components/TeamInput";
 import { useI18n } from "../i18n";
+
+/** Antwortoptionen "Wie hast du von uns erfahren?" (Codes = Backend-Werte). */
+const HEARD_ABOUT = [
+  "always",
+  "friends",
+  "social_media",
+  "posters",
+  "magazines",
+  "internet",
+] as const;
 
 export function RegisterPage() {
   const { t, lang } = useI18n();
@@ -19,6 +30,8 @@ export function RegisterPage() {
     email: "",
     team: "",
     tshirt: "",
+    postal_code: "",
+    heard_about: "",
     consent_data: false,
     consent_publish: false,
     payment_method: "on_site",
@@ -77,7 +90,7 @@ export function RegisterPage() {
     return (
       <>
       <SiteLogo />
-      <SponsorBar />
+      <SponsorBar position="top" />
       <div className="card">
         <p className="success">{t("register.success")}</p>
         <p>
@@ -103,7 +116,7 @@ export function RegisterPage() {
           </p>
         )}
       </div>
-      <SponsorBar />
+      <SponsorBar position="bottom" />
       </>
     );
   }
@@ -111,7 +124,7 @@ export function RegisterPage() {
   return (
     <>
     <SiteLogo />
-    <SponsorBar />
+    <SponsorBar position="top" />
     <form className="card" onSubmit={submit}>
       <h2>{t("register.heading")}</h2>
       {error && <p className="error">{error}</p>}
@@ -178,7 +191,10 @@ export function RegisterPage() {
       </label>
 
       <label>
-        {t("register.team")}
+        <span>
+          {t("register.team")}
+          <InfoTip text={t("register.teamInfo")} />
+        </span>
         <TeamInput
           value={form.team}
           onChange={(v) => setForm({ ...form, team: v })}
@@ -198,6 +214,38 @@ export function RegisterPage() {
           <span className="hint">{t("register.tshirtIncluded")}</span>
         )}
       </label>
+
+      {/* Freiwillige Angaben – reine Statistik, dürfen leer bleiben. */}
+      <fieldset className="payment">
+        <legend>{t("register.survey")}</legend>
+        <p className="hint">{t("register.surveyHint")}</p>
+        <div className="row">
+          <label>
+            {t("register.postalCode")}
+            <input
+              inputMode="numeric"
+              autoComplete="postal-code"
+              maxLength={16}
+              value={form.postal_code}
+              onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
+            />
+          </label>
+          <label>
+            {t("register.heardAbout")}
+            <select
+              value={form.heard_about}
+              onChange={(e) => setForm({ ...form, heard_about: e.target.value })}
+            >
+              <option value="">{t("common.choose")}</option>
+              {HEARD_ABOUT.map((k) => (
+                <option key={k} value={k}>
+                  {t(`heard.${k}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </fieldset>
 
       {/* Zahlungsweg */}
       <fieldset className="payment">
@@ -266,7 +314,7 @@ export function RegisterPage() {
         {busy ? t("common.loading") : t("register.submit")}
       </button>
     </form>
-    <SponsorBar />
+    <SponsorBar position="bottom" />
     </>
   );
 }

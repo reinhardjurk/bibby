@@ -5,10 +5,22 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # --- Anmeldung ------------------------------------------------------------
+# Freiwillige Umfrage "Wie hast du von der Veranstaltung erfahren?".
+# Gespeichert wird der Code; die Beschriftung liefert das Frontend (i18n).
+HEARD_ABOUT_OPTIONS = (
+    "always",
+    "friends",
+    "social_media",
+    "posters",
+    "magazines",
+    "internet",
+)
+
+
 class RegistrationCreate(BaseModel):
     event_id: uuid.UUID
     competition_id: uuid.UUID
@@ -22,6 +34,19 @@ class RegistrationCreate(BaseModel):
     tshirt: str | None = None
     consent_data: bool
     consent_publish: bool = False
+
+    # Freiwillige Angaben (dürfen leer bleiben).
+    postal_code: str | None = Field(default=None, max_length=16)
+    heard_about: str | None = None
+
+    @field_validator("heard_about")
+    @classmethod
+    def _check_heard_about(cls, v: str | None) -> str | None:
+        if v in (None, ""):
+            return None
+        if v not in HEARD_ABOUT_OPTIONS:
+            raise ValueError(f"Ungültiger Wert; erlaubt: {', '.join(HEARD_ABOUT_OPTIONS)}")
+        return v
 
     # Zahlung: SEPA-Lastschriftmandat oder Barzahlung bei Abholung.
     payment_method: str = Field(pattern="^(sepa_debit|on_site)$")
@@ -296,6 +321,8 @@ class AdminRegistrationDetail(BaseModel):
     team: str | None
     tshirt: str | None
     tshirt_options: list[str] = []
+    postal_code: str | None = None
+    heard_about: str | None = None
     consent_data: bool
     consent_publish: bool
     status: str
