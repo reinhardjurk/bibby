@@ -38,6 +38,7 @@ export type CompetitionDto = {
   start_time: string | null;
   age_class_scheme: string;
   gender_scoring: boolean;
+  relay_scoring: boolean;
 };
 
 export type TimingPing = { bib_number: number; absolute_time: string; dedup_key: string };
@@ -223,6 +224,7 @@ export type EventCreatePayload = {
     start_time?: string | null;
     age_class_scheme?: string;
     gender_scoring?: boolean;
+    relay_scoring?: boolean;
   }[];
 };
 
@@ -316,6 +318,7 @@ export const adminApi = {
       price_junior_cents?: number | null;
       age_class_scheme?: string;
       gender_scoring?: boolean;
+      relay_scoring?: boolean;
     }
   ) =>
     adminReq<{ id: string; price_cents: number; price_junior_cents: number | null }>(

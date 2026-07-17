@@ -466,6 +466,7 @@ export function CompetitionSettings({ eventId, lang }: { eventId: string; lang: 
             <th>{t("admin.priceJunior")}</th>
             <th>{t("admin.ageClasses")}</th>
             <th>{t("admin.genderScoring")}</th>
+            <th>{t("admin.relayScoring")}</th>
             <th></th>
           </tr>
         </thead>
@@ -497,6 +498,7 @@ function CompetitionRow({
   );
   const [scheme, setScheme] = useState(comp.age_class_scheme);
   const [genderScoring, setGenderScoring] = useState(comp.gender_scoring);
+  const [relayScoring, setRelayScoring] = useState(comp.relay_scoring);
   const [saved, setSaved] = useState(false);
   const label = comp.title_i18n?.[lang] || "Lauf";
   const touch = () => setSaved(false);
@@ -508,6 +510,7 @@ function CompetitionRow({
       price_junior_cents: priceJunior === "" ? null : Math.round(Number(priceJunior) * 100),
       age_class_scheme: scheme,
       gender_scoring: genderScoring,
+      relay_scoring: relayScoring,
     });
     setSaved(true);
     onSaved();
@@ -570,6 +573,16 @@ function CompetitionRow({
           checked={genderScoring}
           onChange={(e) => {
             setGenderScoring(e.target.checked);
+            touch();
+          }}
+        />
+      </td>
+      <td style={{ textAlign: "center" }}>
+        <input
+          type="checkbox"
+          checked={relayScoring}
+          onChange={(e) => {
+            setRelayScoring(e.target.checked);
             touch();
           }}
         />

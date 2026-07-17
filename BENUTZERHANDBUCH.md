@@ -128,6 +128,7 @@ Hier legst du **vor** der Veranstaltung alles Grundlegende an.
   - **Startzeit** der Strecke (überschreibt die Standard-Startzeit)
   - **Altersklassen-Schema:** 5-Jahres-Klassen / 1-Jahres-Klassen / keine
   - **Geschlechtswertung:** ja/nein
+  - **mit Staffellogik:** ja/nein (siehe [2.5](#25-staffeln))
 - **Event-Einstellungen** (nach Auswahl eines Events):
   - T-Shirt-Optionen, Jugend-Stichtag, „T-Shirt inklusive"
   - **Urkunden-Druckversatz** (verschiebt den Aufdruck vertikal, in „Zeilen";
@@ -171,6 +172,27 @@ Nach Auswahl des Events findest du hier die operativen Werkzeuge:
   persönlichen Verwaltungslink des Teilnehmers ersetzt — er muss erhalten
   bleiben. Änderungen wirken sofort, ohne dass etwas neu ausgerollt werden muss.
 
+### 2.3 Tab „Ergebnisdruck" — Urkunden
+
+Nachdem Zeiten erfasst und berechnet wurden, druckst du hier die Urkunden. Alle
+Downloads sind PDFs.
+
+1. **Event wählen.**
+2. **„Hintergrund mitdrucken"** an-/abwählen: mit Häkchen wird die hochgeladene
+   Urkunden-Vorlage mitgedruckt; ohne Häkchen nur Text (praktisch für
+   vorgedrucktes Urkundenpapier).
+3. **Einzelne Urkunde:** Startnummer eingeben → **Drucken**.
+4. **Sammeldruck je Lauf:** Strecke wählen. Dann:
+   - **„Alle Urkunden des Laufs"**: ein PDF mit allen Urkunden der Strecke,
+     sortiert nach Altersklasse (aufsteigend), Geschlecht und innerhalb der
+     Gruppe **schlechteste Platzierung zuerst** — passend für die
+     Siegerehrung von hinten nach vorne.
+   - **Wertungsgruppen-Liste:** je Gruppe (Altersklasse × Geschlecht) mit
+     Teilnehmerzahl und eigenem **Download**-Button.
+
+> Eine Urkunde ist nur verfügbar, wenn für den Teilnehmer eine **Zielzeit**
+> vorliegt.
+
 ### 2.4 Benutzer & Rollen (nur admin)
 
 Ebenfalls im Tab **Special-Admin**, ganz unten (nur mit Rolle **admin**
@@ -192,26 +214,27 @@ sichtbar), verwaltest du die Team-Zugänge:
 Zahlungen, Events, Urkunden, Renntag) · Zeitnahme (Zeiten & Geräte) · Sponsoren
 (nur Sponsoren-Tab) · SEPA (nur SEPA-Tab) · Nur lesen.
 
-### 2.3 Tab „Ergebnisdruck" — Urkunden
+### 2.5 Staffeln
 
-Nachdem Zeiten erfasst und berechnet wurden, druckst du hier die Urkunden. Alle
-Downloads sind PDFs.
+Ist bei einer Strecke **„mit Staffellogik"** gesetzt, entstehen Staffeln
+**automatisch** — es gibt keine separate Staffel-Anmeldung:
 
-1. **Event wählen.**
-2. **„Hintergrund mitdrucken"** an-/abwählen: mit Häkchen wird die hochgeladene
-   Urkunden-Vorlage mitgedruckt; ohne Häkchen nur Text (praktisch für
-   vorgedrucktes Urkundenpapier).
-3. **Einzelne Urkunde:** Startnummer eingeben → **Drucken**.
-4. **Sammeldruck je Lauf:** Strecke wählen. Dann:
-   - **„Alle Urkunden des Laufs"**: ein PDF mit allen Urkunden der Strecke,
-     sortiert nach Altersklasse (aufsteigend), Geschlecht und innerhalb der
-     Gruppe **schlechteste Platzierung zuerst** — passend für die
-     Siegerehrung von hinten nach vorne.
-   - **Wertungsgruppen-Liste:** je Gruppe (Altersklasse × Geschlecht) mit
-     Teilnehmerzahl und eigenem **Download**-Button.
+- Eine Staffel sind **genau drei** Anmeldungen mit **demselben Teamnamen** in
+  **derselben Strecke**. Groß-/Kleinschreibung und Leerzeichen spielen keine
+  Rolle (`" beta "` und `"Beta"` zählen zusammen).
+- Zwei oder vier gleiche Teamnamen ergeben **keine** Staffel; ohne Teamnamen
+  ebenfalls nicht.
+- Die Staffeln werden bei **„Alle Laufzeiten berechnen"** (Special-Admin) neu
+  gebildet. Änderst du Teamnamen, einfach erneut berechnen.
+- **Gesamtzeit der Staffel** = Summe der drei Einzelzeiten. Fehlt einem
+  Mitglied die Zeit, bleibt die Staffel **ungewertet** (erscheint dann nicht auf
+  der Urkunde).
+- Auf der **Urkunde** eines Staffelmitglieds erscheinen zusätzlich
+  **Staffel-Platz** (unter allen gewerteten Staffeln der Strecke) und die
+  **Staffel-Gesamtzeit**.
 
-> Eine Urkunde ist nur verfügbar, wenn für den Teilnehmer eine **Zielzeit**
-> vorliegt.
+Nimmst du das Häkchen wieder weg, werden die Staffelzuordnungen beim nächsten
+Berechnen entfernt.
 
 ---
 

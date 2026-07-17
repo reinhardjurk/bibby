@@ -91,8 +91,10 @@ class Competition(Base):
     # Wertungs-Konfiguration je Strecke:
     #   age_class_scheme: 'five' (5-Jahres) | 'one' (Einjahres) | 'none' (keine AK)
     #   gender_scoring:   getrennte Wertung je Geschlecht ja/nein
+    #   relay_scoring:    Staffelwertung (genau 3 gleiche Teamnamen = eine Staffel)
     age_class_scheme: Mapped[str] = mapped_column(String, default="five")
     gender_scoring: Mapped[bool] = mapped_column(Boolean, default=True)
+    relay_scoring: Mapped[bool] = mapped_column(Boolean, default=False)
 
     event: Mapped[Event] = relationship(back_populates="competitions")
 
@@ -132,6 +134,9 @@ class Registration(Base):
     postal_code: Mapped[str | None] = mapped_column(String)
     # Wie die Person von der Veranstaltung erfahren hat (Code, s. schemas).
     heard_about: Mapped[str | None] = mapped_column(String)
+    # Zugehörigkeit zu einer Staffel. Wird NICHT bei der Anmeldung gesetzt, sondern
+    # bei "Alle Laufzeiten berechnen" abgeleitet (s. services.assign_relays).
+    relay_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     # Anmeldung gilt sofort als bestätigt; Zahlung wird separat geführt.
     status: Mapped[str] = mapped_column(String, default="confirmed")
     # Gespeicherte Netto-Laufzeit (Sek.), berechnet per "Alle Laufzeiten berechnen".

@@ -114,6 +114,7 @@ async def list_competitions(
             "start_time": c.start_time.isoformat() if c.start_time else None,
             "age_class_scheme": c.age_class_scheme,
             "gender_scoring": c.gender_scoring,
+            "relay_scoring": c.relay_scoring,
         }
         for c in rows
     ]

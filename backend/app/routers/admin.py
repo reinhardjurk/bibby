@@ -493,6 +493,7 @@ async def certificate_bundle(
     target = age_class or None
     target_gender = gender or None
     rows = await services.build_results(session, comp, only_published=False)
+    bib_relay, relay_standings = await services.relay_context(session, comp)
     certs = [
         {
             "first_name": r.first_name,
@@ -504,7 +505,8 @@ async def certificate_bundle(
                 services.placement_from_rows(rows, r.bib_number),
                 lang,
                 gender_scoring=comp.gender_scoring,
-            ),
+            )
+            + services.relay_lines(relay_standings.get(bib_relay.get(r.bib_number)), lang),
         }
         for r in rows
         if r.finish_seconds is not None
@@ -549,6 +551,7 @@ async def certificate_all(
     )
     if not finishers:
         raise HTTPException(404, "Keine Urkunden (keine Zeiten vorhanden)")
+    bib_relay, relay_standings = await services.relay_context(session, comp)
     certs = [
         {
             "first_name": r.first_name,
@@ -560,7 +563,8 @@ async def certificate_all(
                 services.placement_from_rows(rows, r.bib_number),
                 lang,
                 gender_scoring=comp.gender_scoring,
-            ),
+            )
+            + services.relay_lines(relay_standings.get(bib_relay.get(r.bib_number)), lang),
         }
         for r in finishers
     ]
@@ -596,6 +600,7 @@ async def certificate_by_bib(
     me = next((r for r in rows if r.bib_number == bib), None)
     if me is None or me.finish_seconds is None:
         raise HTTPException(409, "Für diese Startnummer liegt noch keine Zeit vor")
+    bib_relay, relay_standings = await services.relay_context(session, comp)
     cert = {
         "first_name": me.first_name,
         "last_name": me.last_name,
@@ -604,7 +609,8 @@ async def certificate_by_bib(
         "team": me.team,
         "extra_lines": services.certificate_lines(
             services.placement_from_rows(rows, bib), lang, gender_scoring=comp.gender_scoring
-        ),
+        )
+        + services.relay_lines(relay_standings.get(bib_relay.get(bib)), lang),
     }
     return await _certificate_response(
         [cert], event, f"urkunde-{bib}.pdf", with_background=background
@@ -1068,6 +1074,8 @@ async def update_competition(
         comp.age_class_scheme = body.age_class_scheme
     if body.gender_scoring is not None:
         comp.gender_scoring = body.gender_scoring
+    if body.relay_scoring is not None:
+        comp.relay_scoring = body.relay_scoring
     await session.commit()
     return {
         "id": str(comp.id),
@@ -1121,6 +1129,7 @@ async def create_event(
                 currency=c.currency,
                 age_class_scheme=c.age_class_scheme,
                 gender_scoring=c.gender_scoring,
+                relay_scoring=c.relay_scoring,
             )
         )
     await session.commit()

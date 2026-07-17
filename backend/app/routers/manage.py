@@ -143,6 +143,12 @@ async def certificate_pdf(
         )
         bib_text = services.certificate_bib_text(reg.bib.bib_number, reg.language)
 
+    # Staffelwertung: Platz der Staffel + deren Gesamtzeit (nur wenn die Strecke
+    # Staffellogik hat und diese Anmeldung einer gewerteten Staffel angehört).
+    if reg.relay_id is not None:
+        _, relay_standings = await services.relay_context(session, competition)
+        extra_lines += services.relay_lines(relay_standings.get(reg.relay_id), reg.language)
+
     pdf = services.render_certificate_pdf(
         first_name=participant.first_name,
         last_name=participant.last_name,

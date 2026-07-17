@@ -80,6 +80,7 @@ type CompRow = {
   startTime: string;
   scheme: string;
   genderScoring: boolean;
+  relayScoring: boolean;
 };
 const emptyComp = (): CompRow => ({
   title: "",
@@ -88,6 +89,7 @@ const emptyComp = (): CompRow => ({
   startTime: "",
   scheme: "five",
   genderScoring: true,
+  relayScoring: false,
 });
 
 /** Globales Kopf-Logo hochladen/entfernen. Zeigt oben mittig auf Anmelde- und
@@ -203,6 +205,7 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
           start_time: c.startTime ? new Date(c.startTime).toISOString() : null,
           age_class_scheme: c.scheme,
           gender_scoring: c.genderScoring,
+          relay_scoring: c.relayScoring,
         })),
       };
       const res = await adminApi.createEvent(body);
@@ -267,6 +270,7 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
             <th>{t("admin.startTime")}</th>
             <th>{t("admin.ageClasses")}</th>
             <th>{t("admin.genderScoring")}</th>
+            <th>{t("admin.relayScoring")}</th>
             <th></th>
           </tr>
         </thead>
@@ -289,6 +293,13 @@ function NewEvent({ onCreated }: { onCreated: (id: string) => void }) {
                   type="checkbox"
                   checked={c.genderScoring}
                   onChange={(e) => setComp(i, { genderScoring: e.target.checked })}
+                />
+              </td>
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={c.relayScoring}
+                  onChange={(e) => setComp(i, { relayScoring: e.target.checked })}
                 />
               </td>
               <td>

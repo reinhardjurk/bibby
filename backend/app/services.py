@@ -328,6 +328,126 @@ def certificate_lines(
     return lines
 
 
+# =========================================================================
+# Staffeln (nur für Strecken mit relay_scoring)
+# =========================================================================
+# Eine Staffel besteht aus GENAU so vielen Anmeldungen mit identischem
+# Teamnamen innerhalb derselben Strecke.
+RELAY_TEAM_SIZE = 3
+
+
+async def assign_relays(session: AsyncSession, event_id: uuid.UUID) -> int:
+    """Bildet die Staffeln eines Events neu und schreibt registration.relay_id.
+
+    Regel: je Strecke MIT relay_scoring werden bestätigte Anmeldungen nach
+    normalisiertem Teamnamen gruppiert; Gruppen mit genau RELAY_TEAM_SIZE
+    Mitgliedern bekommen eine gemeinsame, neu erzeugte relay_id. Alles andere
+    (zu klein/zu groß, kein Team, Strecke ohne Staffellogik) bleibt ohne
+    relay_id. Rückgabe: Anzahl gebildeter Staffeln.
+    """
+    comps = (
+        await session.execute(select(Competition).where(Competition.event_id == event_id))
+    ).scalars().all()
+    regs = (
+        await session.execute(
+            select(Registration).where(
+                Registration.event_id == event_id, Registration.status == "confirmed"
+            )
+        )
+    ).scalars().all()
+
+    by_comp: dict[uuid.UUID, list[Registration]] = {}
+    for reg in regs:
+        by_comp.setdefault(reg.competition_id, []).append(reg)
+
+    relays = 0
+    for comp in comps:
+        members = by_comp.get(comp.id, [])
+        # Immer zuerst zurücksetzen -> Umbenennungen/abgeschaltete Logik wirken.
+        for reg in members:
+            reg.relay_id = None
+        if not comp.relay_scoring:
+            continue
+        groups: dict[str, list[Registration]] = {}
+        for reg in members:
+            key = _normalize(reg.team or "")
+            if key:
+                groups.setdefault(key, []).append(reg)
+        for group in groups.values():
+            if len(group) == RELAY_TEAM_SIZE:
+                relay_id = uuid.uuid4()
+                for reg in group:
+                    reg.relay_id = relay_id
+                relays += 1
+    return relays
+
+
+async def relay_context(
+    session: AsyncSession, competition: Competition
+) -> tuple[dict[int, uuid.UUID], dict[uuid.UUID, dict]]:
+    """Staffelwertung einer Strecke.
+
+    Rückgabe: (Startnummer -> relay_id, relay_id -> {team, total_seconds, rank,
+    total_relays}). Gewertet (rank/total_seconds gesetzt) wird nur eine Staffel,
+    deren Mitglieder ALLE eine Zeit haben; Gesamtzeit = Summe der Einzelzeiten.
+    """
+    if not competition.relay_scoring:
+        return {}, {}
+
+    rows = (
+        await session.execute(
+            select(Registration, BibAssignment)
+            .outerjoin(BibAssignment, BibAssignment.registration_id == Registration.id)
+            .where(
+                Registration.competition_id == competition.id,
+                Registration.status == "confirmed",
+                Registration.relay_id.isnot(None),
+            )
+        )
+    ).all()
+
+    members: dict[uuid.UUID, list[Registration]] = {}
+    bib_relay: dict[int, uuid.UUID] = {}
+    for reg, bib in rows:
+        members.setdefault(reg.relay_id, []).append(reg)
+        if bib is not None:
+            bib_relay[bib.bib_number] = reg.relay_id
+
+    standings: dict[uuid.UUID, dict] = {}
+    ranked: list[tuple[float, uuid.UUID]] = []
+    for relay_id, group in members.items():
+        times = [r.finish_seconds for r in group]
+        complete = len(group) == RELAY_TEAM_SIZE and all(t is not None for t in times)
+        total = sum(times) if complete else None
+        standings[relay_id] = {
+            "team": next((r.team for r in group if r.team), None),
+            "total_seconds": total,
+            "rank": None,
+            "total_relays": 0,
+        }
+        if total is not None:
+            ranked.append((total, relay_id))
+
+    ranked.sort(key=lambda x: x[0])
+    for rank, (_total, relay_id) in enumerate(ranked, start=1):
+        standings[relay_id]["rank"] = rank
+        standings[relay_id]["total_relays"] = len(ranked)
+    return bib_relay, standings
+
+
+def relay_lines(info: dict | None, lang: str = "de") -> list[str]:
+    """Zusatzzeilen für die Urkunde: Platz der Staffel + deren Gesamtzeit.
+    Unvollständige (noch nicht gewertete) Staffeln liefern nichts."""
+    if not info or info.get("rank") is None:
+        return []
+    en = lang == "en"
+    of = "of" if en else "von"
+    return [
+        f"{'Relay rank' if en else 'Staffel-Platz'}: {info['rank']} {of} {info['total_relays']}",
+        f"{'Relay time' if en else 'Staffel-Gesamtzeit'}: {format_duration(info['total_seconds'])}",
+    ]
+
+
 async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> int:
     """Berechnet für alle bestätigten Anmeldungen mit Startnummer die Netto-
     Laufzeit (Zielüberquerung − Startzeit) neu und speichert sie in
@@ -366,6 +486,9 @@ async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> i
         reg.finish_seconds = finish
         if finish is not None:
             count += 1
+
+    # Staffeln erst NACH den Einzelzeiten bilden: die Wertung summiert diese.
+    await assign_relays(session, event_id)
 
     await session.commit()
     return count

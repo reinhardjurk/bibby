@@ -261,6 +261,7 @@ class CompetitionUpdate(BaseModel):
     price_junior_cents: int | None = None     # Jugendpreis (null = wie Erwachsene)
     age_class_scheme: str | None = None       # 'five' | 'one' | 'none'
     gender_scoring: bool | None = None
+    relay_scoring: bool | None = None
 
 
 class EventUpdate(BaseModel):
@@ -279,6 +280,7 @@ class CompetitionCreate(BaseModel):
     start_time: datetime | None = None
     age_class_scheme: str = "five"            # 'five' | 'one' | 'none'
     gender_scoring: bool = True
+    relay_scoring: bool = False
 
 
 class EventCreate(BaseModel):
