@@ -111,5 +111,10 @@ python -m app.loadtest seed [N] [JAHR]   # Testdaten (@loadtest.de, Startnr. ab 
 python -m app.loadtest clear             # entfernt Testdaten (matcht %@loadtest.%)
 ```
 
+`seed` erzeugt auch Teams (gezielt Dreier-Gruppen → Staffeln, plus Vereine/Paare,
+die bewusst keine Staffel ergeben), gestreute Postleitzahlen und die freiwilligen
+Angaben — damit lassen sich Staffelwertung und Statistik-Tab realistisch testen.
+Zeiten und Staffeln entstehen erst durch **„Alle Laufzeiten berechnen"**.
+
 Details je Komponente in `backend/README.md`, `frontend/README.md`,
 `infra/README.md`.

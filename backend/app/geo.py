@@ -140,6 +140,11 @@ def region_name(region: str | None) -> str | None:
     return _REGIONS[region][2] if region in _REGIONS else None
 
 
+def region_codes() -> list[str]:
+    """Alle bekannten Leitregionen (z. B. um Testdaten zu streuen)."""
+    return list(_REGIONS)
+
+
 def distance_km(a: str | None, b: str | None) -> float | None:
     """Luftlinie zwischen zwei PLZ-Leitregionen (Haversine), None wenn eine der
     beiden PLZ unbekannt ist. Gleiche Region -> 0.0."""
