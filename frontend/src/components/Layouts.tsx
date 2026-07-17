@@ -38,6 +38,7 @@ export function AdminLayout() {
     { to: "/team/special", label: t("nav.special") },
     { to: "/team/sponsoren", label: t("nav.sponsors") },
     { to: "/team/veryspecial", label: t("nav.veryspecial") },
+    { to: "/team/statistiken", label: t("nav.stats") },
     { to: "/team/sepa", label: t("nav.sepa") },
   ];
 

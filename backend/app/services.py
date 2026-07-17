@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import mailer
+from . import geo, mailer
 from .config import settings
 from .models import (
     AppSetting,
@@ -446,6 +446,242 @@ def relay_lines(info: dict | None, lang: str = "de") -> list[str]:
         f"{'Relay rank' if en else 'Staffel-Platz'}: {info['rank']} {of} {info['total_relays']}",
         f"{'Relay time' if en else 'Staffel-Gesamtzeit'}: {format_duration(info['total_seconds'])}",
     ]
+
+
+# =========================================================================
+# Statistiken (Moderations-/Auswertungsdaten zu einem Event)
+# =========================================================================
+# Obergrenzen der Anreise-Spannen in km (s. geo.py: nur grobe Näherung).
+TRAVEL_BUCKETS_KM = (25, 50, 100, 250, 500)
+
+
+def _travel_bucket_label(km: float) -> str:
+    edges = TRAVEL_BUCKETS_KM
+    if km < edges[0]:
+        return f"< {edges[0]} km"
+    for lo, hi in zip(edges, edges[1:]):
+        if km < hi:
+            return f"{lo}–{hi} km"
+    return f"> {edges[-1]} km"
+
+
+async def build_stats(session: AsyncSession, event_id: uuid.UUID) -> dict:
+    """Alle Kennzahlen eines Events für den Statistik-Tab (Moderation)."""
+    event = await session.get(Event, event_id)
+    if event is None:
+        raise ValueError("Event nicht gefunden")
+
+    comps = (
+        await session.execute(select(Competition).where(Competition.event_id == event_id))
+    ).scalars().all()
+    rows = (
+        await session.execute(
+            select(Registration, Participant)
+            .join(Participant, Participant.id == Registration.participant_id)
+            .where(Registration.event_id == event_id, Registration.status == "confirmed")
+        )
+    ).all()
+
+    def age_of(part: Participant) -> int:
+        return event.event_date.year - part.birth_date.year
+
+    def person(reg: Registration, part: Participant) -> dict:
+        return {
+            "name": f"{part.first_name} {part.last_name}",
+            "age": age_of(part),
+            "team": reg.team,
+        }
+
+    def gender_counts(items: list[tuple[Registration, Participant]]) -> dict[str, int]:
+        out = {"f": 0, "m": 0, "x": 0}
+        for _reg, part in items:
+            if part.gender in out:
+                out[part.gender] += 1
+        return out
+
+    def extremes(items: list[tuple[Registration, Participant]]) -> tuple[dict | None, dict | None]:
+        if not items:
+            return None, None
+        youngest = max(items, key=lambda rp: rp[1].birth_date)
+        oldest = min(items, key=lambda rp: rp[1].birth_date)
+        return person(*youngest), person(*oldest)
+
+    def avg_age(items: list[tuple[Registration, Participant]]) -> float | None:
+        return round(sum(age_of(p) for _r, p in items) / len(items), 1) if items else None
+
+    # --- je Strecke ---------------------------------------------------------
+    by_comp: dict[uuid.UUID, list[tuple[Registration, Participant]]] = {}
+    for reg, part in rows:
+        by_comp.setdefault(reg.competition_id, []).append((reg, part))
+
+    competitions: list[dict] = []
+    relays_all: list[dict] = []
+    for comp in sorted(comps, key=lambda c: competition_label(c)):
+        items = by_comp.get(comp.id, [])
+        youngest, oldest = extremes(items)
+        finishers = [(r, p) for r, p in items if r.finish_seconds is not None]
+        fastest = min(finishers, key=lambda rp: rp[0].finish_seconds) if finishers else None
+
+        _bib_relay, standings = await relay_context(session, comp)
+        comp_relays = [
+            {
+                "team": info["team"],
+                "competition": competition_label(comp),
+                "rank": info["rank"],
+                "total_seconds": info["total_seconds"],
+                "scored": info["rank"] is not None,
+            }
+            for info in standings.values()
+        ]
+        comp_relays.sort(key=lambda r: (r["rank"] is None, r["rank"] or 0))
+        relays_all.extend(comp_relays)
+
+        competitions.append(
+            {
+                "id": str(comp.id),
+                "title": competition_label(comp),
+                "total": len(items),
+                "gender": gender_counts(items),
+                "finishers": len(finishers),
+                "average_age": avg_age(items),
+                "youngest": youngest,
+                "oldest": oldest,
+                "relay_scoring": comp.relay_scoring,
+                "relays": len(comp_relays),
+                "fastest": (
+                    {
+                        "name": f"{fastest[1].first_name} {fastest[1].last_name}",
+                        "time_text": format_duration(fastest[0].finish_seconds),
+                    }
+                    if fastest
+                    else None
+                ),
+            }
+        )
+
+    # --- Teams --------------------------------------------------------------
+    teams: dict[str, int] = {}
+    for reg, _part in rows:
+        name = (reg.team or "").strip()
+        if name:
+            teams[name] = teams.get(name, 0) + 1
+    team_list = sorted(
+        ({"name": n, "members": c} for n, c in teams.items()),
+        key=lambda t: (-t["members"], t["name"].lower()),
+    )
+
+    # --- Anreise (grobe PLZ-Näherung, s. geo.py) ---------------------------
+    distances: list[tuple[float, Registration, Participant]] = []
+    unknown = 0
+    regions: dict[str, int] = {}
+    for reg, part in rows:
+        km = geo.distance_km(event.postal_code, reg.postal_code)
+        if km is None:
+            unknown += 1
+            continue
+        distances.append((km, reg, part))
+        region = geo.region_of(reg.postal_code)
+        if region:
+            regions[region] = regions.get(region, 0) + 1
+
+    buckets: dict[str, int] = {}
+    for km, _r, _p in distances:
+        label = _travel_bucket_label(km)
+        buckets[label] = buckets.get(label, 0) + 1
+    bucket_order = [f"< {TRAVEL_BUCKETS_KM[0]} km"]
+    bucket_order += [f"{lo}–{hi} km" for lo, hi in zip(TRAVEL_BUCKETS_KM, TRAVEL_BUCKETS_KM[1:])]
+    bucket_order.append(f"> {TRAVEL_BUCKETS_KM[-1]} km")
+
+    farthest = max(distances, key=lambda d: d[0]) if distances else None
+    travel = {
+        "reference_postal_code": event.postal_code,
+        "known": len(distances),
+        "unknown": unknown,
+        "average_km": round(sum(d[0] for d in distances) / len(distances)) if distances else None,
+        "buckets": [{"label": lb, "count": buckets.get(lb, 0)} for lb in bucket_order],
+        "farthest": (
+            {
+                "name": f"{farthest[2].first_name} {farthest[2].last_name}",
+                "km": round(farthest[0]),
+                "region": geo.region_name(geo.region_of(farthest[1].postal_code)),
+            }
+            if farthest
+            else None
+        ),
+        "top_regions": [
+            {
+                "region": r,
+                "name": geo.region_name(r),
+                "count": c,
+            }
+            for r, c in sorted(regions.items(), key=lambda x: (-x[1], x[0]))[:8]
+        ],
+    }
+
+    # --- Freiwillige Angaben / Logistik ------------------------------------
+    heard: dict[str, int] = {}
+    shirts: dict[str, int] = {}
+    for reg, _part in rows:
+        if reg.heard_about:
+            heard[reg.heard_about] = heard.get(reg.heard_about, 0) + 1
+        if reg.tshirt:
+            shirts[reg.tshirt] = shirts.get(reg.tshirt, 0) + 1
+
+    # --- Stammgäste (jahresübergreifend) -----------------------------------
+    part_ids = [p.id for _r, p in rows]
+    participations: dict[uuid.UUID, int] = {}
+    if part_ids:
+        counts = (
+            await session.execute(
+                select(Registration.participant_id, func.count(func.distinct(Registration.event_id)))
+                .where(
+                    Registration.participant_id.in_(part_ids),
+                    Registration.status == "confirmed",
+                )
+                .group_by(Registration.participant_id)
+            )
+        ).all()
+        participations = {pid: n for pid, n in counts}
+    regulars = sorted(
+        (
+            {
+                "name": f"{p.first_name} {p.last_name}",
+                "participations": participations.get(p.id, 1),
+            }
+            for _r, p in rows
+        ),
+        key=lambda x: (-x["participations"], x["name"]),
+    )
+    repeat_count = sum(1 for _r, p in rows if participations.get(p.id, 1) > 1)
+
+    youngest_all, oldest_all = extremes(rows)
+    return {
+        "event": {
+            "name": event.name,
+            "year": event.year,
+            "event_date": event.event_date.isoformat(),
+            "postal_code": event.postal_code,
+        },
+        "total": len(rows),
+        "finishers": sum(1 for r, _p in rows if r.finish_seconds is not None),
+        "gender": gender_counts(rows),
+        "average_age": avg_age(rows),
+        "youngest": youngest_all,
+        "oldest": oldest_all,
+        "competitions": competitions,
+        "teams": {"count": len(team_list), "list": team_list},
+        "relays": {
+            "count": sum(1 for r in relays_all if r["scored"]),
+            "formed": len(relays_all),
+            "list": relays_all,
+        },
+        "travel": travel,
+        "heard_about": [
+            {"code": c, "count": n} for c, n in sorted(heard.items(), key=lambda x: -x[1])
+        ],
+        "tshirts": [{"size": s, "count": n} for s, n in sorted(shirts.items(), key=lambda x: -x[1])],
+        "regulars": {"repeat_count": repeat_count, "list": regulars[:10]},
+    }
 
 
 async def recompute_event_times(session: AsyncSession, event_id: uuid.UUID) -> int:

@@ -71,6 +71,9 @@ class Event(Base):
     # das Bild wird formatfüllend hinterlegt, Text liegt mittig darüber.
     bib_bg: Mapped[bytes | None] = mapped_column(LargeBinary)
     bib_bg_mime: Mapped[str | None] = mapped_column(String)
+    # PLZ des Veranstaltungsorts – Bezugspunkt für die grobe Anreise-Schätzung
+    # in den Statistiken (s. geo.py).
+    postal_code: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     competitions: Mapped[list[Competition]] = relationship(back_populates="event")

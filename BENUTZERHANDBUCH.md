@@ -9,6 +9,7 @@ das Kapitel, das zu deiner Aufgabe passt.
 - [Kapitel 2 — Lauf-Administration](#kapitel-2--lauf-administration) · Tabs **Special-Admin**, **Events**, **Ergebnisdruck**
 - [Kapitel 3 — Sponsorenverwaltung](#kapitel-3--sponsorenverwaltung) · Tab **Sponsoren**
 - [Kapitel 4 — SEPA-Verwaltung](#kapitel-4--sepa-verwaltung) · Tab **SEPA**
+- [Kapitel 5 — Statistiken (Moderation)](#kapitel-5--statistiken-moderation) · Tab **Statistiken**
 - [Häufige Probleme](#häufige-probleme)
 
 ---
@@ -20,7 +21,7 @@ das Kapitel, das zu deiner Aufgabe passt.
 Der Team-Bereich liegt unter **https://anmeldung.run-bibby.de/team**. Oben
 findest du die Navigationsreiter (Tabs):
 
-**Admin · Special-Admin · Events · SEPA · Ergebnisdruck · Sponsoren · Zeiterfassung**
+**Admin · Ergebnisdruck · Zeiterfassung · Special-Admin · Sponsoren · Events · Statistiken · SEPA**
 
 Beim ersten Öffnen eines Tabs erscheint eine **Login-Maske** (E-Mail +
 Passwort). Nach dem Login bleibst du **72 Stunden** angemeldet; danach ist ein
@@ -35,11 +36,11 @@ Team-Zugänge legt ein **Administrator** im Tab **Special-Admin** unter
 | Rolle | Darf | Sichtbare Tabs |
 |---|---|---|
 | **admin** | alles (inkl. Event löschen, Mailversand auf „Live" schalten, Benutzerverwaltung) | alle |
-| **race_office** | Anmeldungen, Startnummern, Zahlungen, Events/Strecken, Urkunden, Renntag-Betrieb | Admin, Ergebnisdruck, Zeiterfassung, Special-Admin, Events |
+| **race_office** | Anmeldungen, Startnummern, Zahlungen, Events/Strecken, Urkunden, Renntag-Betrieb | Admin, Ergebnisdruck, Zeiterfassung, Special-Admin, Events, Statistiken |
 | **timing** | Zeiten erfassen/korrigieren, Zeitnahme-Geräte | Zeiterfassung, Special-Admin |
 | **sponsor_management** | Sponsorenlogos verwalten | Sponsoren |
 | **sepa** | SEPA-Einzugsliste exportieren | SEPA |
-| **viewer** | (reine Lese-Rolle) | – |
+| **viewer** | (reine Lese-Rolle) | Statistiken |
 
 **Die Tabs sind rollenabhängig:** Du siehst nur die Tabs, für die dein Zugang
 eine Rolle hat (admin sieht alle). Ein Nutzer kann mehrere Rollen haben — z. B.
@@ -131,6 +132,7 @@ Hier legst du **vor** der Veranstaltung alles Grundlegende an.
   - **mit Staffellogik:** ja/nein (siehe [2.5](#25-staffeln))
 - **Event-Einstellungen** (nach Auswahl eines Events):
   - T-Shirt-Optionen, Jugend-Stichtag, „T-Shirt inklusive"
+  - **PLZ des Veranstaltungsorts** — Bezugspunkt der Anreise-Statistik
   - **Urkunden-Druckversatz** (verschiebt den Aufdruck vertikal, in „Zeilen";
     negativ = nach oben, positiv = nach unten)
   - **Urkunden-Hintergrund** hochladen (A4-Vorlage; Name/Zeit werden mittig
@@ -317,6 +319,42 @@ Betrag, Währung, Mandatsreferenz, Mandatsdatum, Verwendungszweck**.
   solche Fälle dem technischen Team.
 - Eine fertige **pain.008-XML** (SEPA-Bankdatei) erzeugt Bibby derzeit noch
   nicht — nur die CSV.
+
+---
+
+## Kapitel 5 — Statistiken (Moderation)
+
+> **Tab: Statistiken** · benötigt **race_office** oder **viewer** (oder admin).
+> Reine Leseansicht — hier lässt sich nichts kaputtmachen.
+
+Gedacht als Materialsammlung für die Moderation am Mikrofon. Event wählen, fertig.
+
+- **Überblick:** Teilnehmende gesamt, im Ziel, Anzahl Teams und Staffeln,
+  Durchschnittsalter, Geschlechterverteilung, jüngste/r und älteste/r.
+- **Je Lauf:** Teilnehmerzahl, Aufteilung nach Geschlecht, Durchschnittsalter,
+  jüngste/r und älteste/r, Anzahl Staffeln, schnellste Zeit.
+- **Staffelwertung:** Platz, Teamname, Lauf, Gesamtzeit. Unvollständige Staffeln
+  (jemand ohne Zeit) stehen grau am Ende.
+- **Teamnamen:** alle Teams mit Mitgliederzahl.
+- **Anreise:** Durchschnitt, weiteste Anreise (mit Region), Verteilung in
+  Entfernungsspannen, häufigste Regionen.
+- **Stammgäste:** wer nicht zum ersten Mal dabei ist, inklusive „X. Teilnahme" —
+  dankbare Moderationsvorlage.
+- **Wie erfahren?** und **T-Shirt-Größen** aus den freiwilligen Angaben
+  (Letzteres eher für die Logistik).
+
+### Zur Anreise-Schätzung
+
+Die Entfernung ist eine **grobe Näherung** über die **PLZ-Leitregion** (die
+ersten zwei Ziffern), nicht über die exakte Adresse:
+
+- Genauigkeit ca. **±30 km** — gut für „der weiteste Weg war rund 600 km",
+  nicht für exakte Aussagen.
+- **Gleiche Region zählt als 0 km** (Gröbenzell und Starnberg sind beide „82").
+- Nur **deutsche** PLZ; die Angabe ist bei der Anmeldung **freiwillig**, daher
+  wird „ohne PLZ-Angabe" separat ausgewiesen.
+- Es braucht die **PLZ des Veranstaltungsorts** (Events → Event-Einstellungen).
+  Fehlt sie, entfällt die Auswertung.
 
 ---
 

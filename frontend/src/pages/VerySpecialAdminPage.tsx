@@ -333,6 +333,7 @@ function EventSettings({ eventId }: { eventId: string }) {
   const [cutoff, setCutoff] = useState("");
   const [included, setIncluded] = useState(false);
   const [offset, setOffset] = useState("0");
+  const [plz, setPlz] = useState("");
   const [saved, setSaved] = useState(false);
   const [hasBg, setHasBg] = useState(false);
   const [bgBusy, setBgBusy] = useState(false);
@@ -348,6 +349,7 @@ function EventSettings({ eventId }: { eventId: string }) {
       setCutoff(ev?.junior_cutoff_date ?? "");
       setIncluded(ev?.tshirt_included ?? false);
       setOffset(String(ev?.certificate_offset ?? 0));
+      setPlz(ev?.postal_code ?? "");
       setHasBg(ev?.has_certificate_background ?? false);
       setHasBibBg(ev?.has_bib_background ?? false);
       setBgMsg("");
@@ -393,6 +395,7 @@ function EventSettings({ eventId }: { eventId: string }) {
       junior_cutoff_date: cutoff || null,
       tshirt_included: included,
       certificate_offset: Number(offset) || 0,
+      postal_code: plz.trim() || null,
     });
     setSaved(true);
   };
@@ -425,6 +428,17 @@ function EventSettings({ eventId }: { eventId: string }) {
         </label>
       </div>
       <p className="hint">{t("admin.juniorCutoffHint")}</p>
+
+      <label>
+        {t("admin.eventPostalCode")}
+        <input
+          inputMode="numeric"
+          style={{ width: 120 }}
+          value={plz}
+          onChange={(e) => { setPlz(e.target.value); setSaved(false); }}
+        />
+      </label>
+      <p className="hint">{t("admin.eventPostalCodeHint")}</p>
 
       <label>
         {t("admin.certificateOffset")}

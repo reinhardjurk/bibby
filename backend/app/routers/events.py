@@ -66,6 +66,7 @@ async def list_events(session: AsyncSession = Depends(get_session)) -> list[dict
                 Event.certificate_bg.isnot(None),
                 Event.certificate_offset,
                 Event.bib_bg.isnot(None),
+                Event.postal_code,
             ).order_by(Event.year.desc())
         )
     ).all()
@@ -84,6 +85,7 @@ async def list_events(session: AsyncSession = Depends(get_session)) -> list[dict
             "has_certificate_background": r[8],
             "certificate_offset": r.certificate_offset,
             "has_bib_background": r[10],
+            "postal_code": r.postal_code,
         }
         for r in rows
     ]

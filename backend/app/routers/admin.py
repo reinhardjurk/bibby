@@ -617,6 +617,20 @@ async def certificate_by_bib(
     )
 
 
+# --- Statistiken (Moderation) ---------------------------------------------
+@router.get("/events/{event_id}/stats")
+async def event_stats(
+    event_id: uuid.UUID,
+    _user=Depends(require_roles("race_office", "viewer")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Kennzahlen des Events für den Statistik-Tab. Reine Leseoperation."""
+    try:
+        return await services.build_stats(session, event_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
 # --- Anmeldungen auflisten (paginiert + Suche) ----------------------------
 @router.get("/registrations")
 async def list_registrations(
@@ -1173,6 +1187,8 @@ async def update_event(
         event.tshirt_included = body.tshirt_included
     if body.certificate_offset is not None:
         event.certificate_offset = body.certificate_offset
+    if body.postal_code is not None:
+        event.postal_code = body.postal_code.strip() or None
     await session.commit()
     return {
         "id": str(event.id),

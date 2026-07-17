@@ -6,6 +6,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { ResultsPage } from "./pages/ResultsPage";
 import { ResultsPrintPage } from "./pages/ResultsPrintPage";
 import { SepaAdminPage } from "./pages/SepaAdminPage";
+import { StatisticsPage } from "./pages/StatisticsPage";
 import { SpecialAdminPage } from "./pages/SpecialAdminPage";
 import { SponsorsAdminPage } from "./pages/SponsorsAdminPage";
 import { TimingPage } from "./pages/TimingPage";
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="special" element={<SpecialAdminPage />} />
         <Route path="veryspecial" element={<VerySpecialAdminPage />} />
         <Route path="sepa" element={<SepaAdminPage />} />
+        <Route path="statistiken" element={<StatisticsPage />} />
         <Route path="ergebnisdruck" element={<ResultsPrintPage />} />
         <Route path="sponsoren" element={<SponsorsAdminPage />} />
         <Route path="zeiterfassung" element={<TimingPage />} />

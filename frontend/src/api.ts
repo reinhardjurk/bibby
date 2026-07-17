@@ -26,6 +26,7 @@ export type EventDto = {
   has_certificate_background: boolean;
   certificate_offset: number;
   has_bib_background: boolean;
+  postal_code: string | null;
 };
 
 export type CompetitionDto = {
@@ -159,6 +160,7 @@ export const TAB_ACCESS: Record<string, string[]> = {
   "/team/sponsoren": ["sponsor_management"],
   "/team/veryspecial": ["race_office"],
   "/team/sepa": ["sepa"],
+  "/team/statistiken": ["race_office", "viewer"],
 };
 
 export function canAccessTab(roles: string[], path: string): boolean {
@@ -332,6 +334,7 @@ export const adminApi = {
       junior_cutoff_date?: string | null;
       tshirt_included?: boolean;
       certificate_offset?: number;
+      postal_code?: string | null;
     }
   ) =>
     adminReq<{ id: string }>(`/admin/events/${eventId}`, {
@@ -389,6 +392,7 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify(texts),
     }),
+  stats: (eventId: string) => adminReq<StatsDto>(`/admin/events/${eventId}/stats`),
   listUsers: () => adminReq<AdminUser[]>("/admin/users"),
   createUser: (body: { email: string; name: string; password: string; roles: string[] }) =>
     adminReq<AdminUser>("/admin/users", { method: "POST", body: JSON.stringify(body) }),
@@ -396,6 +400,52 @@ export const adminApi = {
     id: string,
     body: { name?: string; active?: boolean; roles?: string[]; password?: string }
   ) => adminReq<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+};
+
+export type StatsPerson = { name: string; age: number; team: string | null };
+export type StatsCompetition = {
+  id: string;
+  title: string;
+  total: number;
+  gender: Record<string, number>;
+  finishers: number;
+  average_age: number | null;
+  youngest: StatsPerson | null;
+  oldest: StatsPerson | null;
+  relay_scoring: boolean;
+  relays: number;
+  fastest: { name: string; time_text: string } | null;
+};
+export type StatsRelay = {
+  team: string | null;
+  competition: string;
+  rank: number | null;
+  total_seconds: number | null;
+  scored: boolean;
+};
+export type StatsDto = {
+  event: { name: string; year: number; event_date: string; postal_code: string | null };
+  total: number;
+  finishers: number;
+  gender: Record<string, number>;
+  average_age: number | null;
+  youngest: StatsPerson | null;
+  oldest: StatsPerson | null;
+  competitions: StatsCompetition[];
+  teams: { count: number; list: { name: string; members: number }[] };
+  relays: { count: number; formed: number; list: StatsRelay[] };
+  travel: {
+    reference_postal_code: string | null;
+    known: number;
+    unknown: number;
+    average_km: number | null;
+    buckets: { label: string; count: number }[];
+    farthest: { name: string; km: number; region: string | null } | null;
+    top_regions: { region: string; name: string | null; count: number }[];
+  };
+  heard_about: { code: string; count: number }[];
+  tshirts: { size: string; count: number }[];
+  regulars: { repeat_count: number; list: { name: string; participations: number }[] };
 };
 
 export type AdminUser = {

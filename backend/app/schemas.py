@@ -269,6 +269,7 @@ class EventUpdate(BaseModel):
     junior_cutoff_date: date | None = None    # Geburtsdatum ab hier = ermäßigt
     tshirt_included: bool | None = None
     certificate_offset: int | None = None     # Urkunden-Druckversatz (Zeilen)
+    postal_code: str | None = None            # PLZ des Veranstaltungsorts (Statistik)
 
 
 class CompetitionCreate(BaseModel):
