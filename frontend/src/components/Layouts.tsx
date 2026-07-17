@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { canAccessTab } from "../api";
 import { useI18n } from "../i18n";
 import { useStaffRoles } from "../pages/adminShared";
@@ -29,6 +29,7 @@ export function RunnerLayout() {
 export function AdminLayout() {
   const { t } = useI18n();
   const { authed, roles } = useStaffRoles();
+  const loc = useLocation();
 
   const tabs: { to: string; label: string; end?: boolean }[] = [
     { to: "/team", label: t("nav.admin"), end: true },
@@ -39,7 +40,16 @@ export function AdminLayout() {
     { to: "/team/veryspecial", label: t("nav.veryspecial") },
     { to: "/team/sepa", label: t("nav.sepa") },
   ];
-  const visible = authed ? tabs.filter((tab) => canAccessTab(roles, tab.to)) : tabs;
+
+  // Reiner Geräte-/QR-Operator der Zeiterfassung (kein Staff-Login): keine
+  // Navigation zu anderen Bereichen. Eingeloggte Staff-Nutzer sehen die nach
+  // Rollen gefilterten Tabs; Ausgeloggte anderswo sehen alle (Login je Seite).
+  const kioskOnly = loc.pathname.startsWith("/team/zeiterfassung") && !authed;
+  const visible = kioskOnly
+    ? []
+    : authed
+      ? tabs.filter((tab) => canAccessTab(roles, tab.to))
+      : tabs;
 
   return (
     <div className="app">
