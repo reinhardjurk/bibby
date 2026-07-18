@@ -353,18 +353,18 @@ async def api_register(
     async with httpx.AsyncClient(timeout=60) as client:
         token = await _login(client, base, email, password)
         if not token:
-            return
+            raise SystemExit(1)
         if not await _require_mail_off(client, base, token):
-            return
+            raise SystemExit(1)
         event = await _newest_event(client, base, year)
         if not event:
-            return
+            raise SystemExit(1)
         r = await client.get(f"{base}/events/{event['id']}/competitions")
         r.raise_for_status()
         comps = r.json()
         if not comps:
             print("loadtest: Event hat keine Strecken.")
-            return
+            raise SystemExit(1)
 
         print(f"loadtest: Anmeldung gegen {base}  (Event {event['name']} {event['year']})")
         print(f"loadtest: {n} Anmeldungen, {parallel} parallel")
@@ -446,6 +446,8 @@ async def api_register(
             + ("alles in Ordnung." if ok else "PROBLEME – siehe oben.")
             + "  Aufräumen:  python -m app.loadtest api-clear URL EMAIL PASSWORT"
         )
+        if not ok:
+            raise SystemExit(1)
 
 
 async def api_timing(
@@ -466,10 +468,10 @@ async def api_timing(
     async with httpx.AsyncClient(timeout=60) as client:
         token = await _login(client, base, email, password)
         if not token:
-            return
+            raise SystemExit(1)
         event = await _newest_event(client, base, year)
         if not event:
-            return
+            raise SystemExit(1)
         event_id = event["id"]
 
         # Je simuliertem Zeitnehmer ein echtes Geräte-Token über die Admin-API.
@@ -482,7 +484,7 @@ async def api_timing(
             )
             if r.status_code != 200:
                 print(f"loadtest: Geräte-Token anlegen fehlgeschlagen: {r.status_code} {r.text[:120]}")
-                return
+                raise SystemExit(1)
             body = r.json()
             tokens.append((body["id"], body["token"]))
 
@@ -572,6 +574,8 @@ async def api_timing(
             + ("alles in Ordnung." if ok else "PROBLEME – siehe oben.")
             + "  Aufräumen:  python -m app.loadtest api-clear URL EMAIL PASSWORT"
         )
+        if not ok:
+            raise SystemExit(1)
 
 
 async def api_clear(base: str, email: str, password: str) -> None:
@@ -580,11 +584,11 @@ async def api_clear(base: str, email: str, password: str) -> None:
     async with httpx.AsyncClient(timeout=120) as client:
         token = await _login(client, base, email, password)
         if not token:
-            return
+            raise SystemExit(1)
         r = await client.post(f"{base}/admin/loadtest/clear", headers=_auth(token))
         if r.status_code != 200:
             print(f"loadtest: Aufräumen fehlgeschlagen ({r.status_code}): {r.text[:200]}")
-            return
+            raise SystemExit(1)
         c = r.json()
         print(
             f"loadtest: {c['registrations']} Anmeldungen, {c['participants']} Teilnehmer, "
@@ -599,7 +603,7 @@ async def clear() -> None:
         c = await services.purge_loadtest_data(s)
         if not any(c.values()):
             print("loadtest: nichts zu löschen.")
-            return
+            raise SystemExit(1)
         print(
             f"loadtest: {c['registrations']} Anmeldungen, {c['participants']} Teilnehmer, "
             f"{c['timings']} Zeiterfassungen, {c['device_tokens']} Geräte-Tokens gelöscht."
